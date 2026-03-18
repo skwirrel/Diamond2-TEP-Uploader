@@ -4,6 +4,8 @@ A browser-based tool that converts publication data from XLSX spreadsheets into 
 
 Runs entirely client-side — no server component, no data passes through any intermediate server. The compiled output is plain static HTML/CSS/JS that can be hosted anywhere or opened directly from the filesystem.
 
+**[Live demo →](https://skwirrel.github.io/Diamond2-TEP-Uploader/)**
+
 ## Documentation
 
 | Document | Audience | Description |
