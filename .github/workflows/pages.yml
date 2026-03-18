@@ -25,6 +25,8 @@ jobs:
       - uses: actions/checkout@v4
 
       - uses: actions/configure-pages@v4
+        with:
+          enablement: true  # enable Pages via Actions if not already active
 
       # Deploy the committed dist/ folder directly — no build step needed
       - uses: actions/upload-pages-artifact@v3
