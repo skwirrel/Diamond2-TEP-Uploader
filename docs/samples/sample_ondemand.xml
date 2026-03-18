@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Document schemaVersion="1.0" xmlns="urn:cdn:pdx:1.0">
+  <Publications>
+    <Publication
+      publicationId="PUB-20250315-IPLAYER-001"
+      episodeId="b0abc1234"
+      availabilityMode="onDemand"
+      isRepeat="true"
+      isPrimary="false">
+      <PublicationDateTime>2025-03-15T20:00:00.000Z</PublicationDateTime>
+      <WindowClosureDateTime>2025-04-15T23:59:59.000Z</WindowClosureDateTime>
+      <ChannelPlatforms>
+        <ChannelPlatform label="BBC iPlayer" id="iPlayer"/>
+      </ChannelPlatforms>
+    </Publication>
+  </Publications>
+</Document>

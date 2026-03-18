@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Document schemaVersion="1.0" xmlns="urn:cdn:pdx:1.0">
+  <Publications>
+    <Publication
+      publicationId="PUB-20250315-BBC1-001"
+      episodeId="b0abc1234"
+      availabilityMode="broadcast"
+      isRepeat="false"
+      isPrimary="true">
+      <PublicationDateTime>2025-03-15T20:00:00.000Z</PublicationDateTime>
+      <ChannelPlatforms>
+        <ChannelPlatform label="BBC One" id="BBC One">
+          <SubChannel label="BBC One Wales" id="BBC One Wales"/>
+          <SubChannel label="BBC One Scotland" id="BBC One Scotland"/>
+        </ChannelPlatform>
+      </ChannelPlatforms>
+    </Publication>
+  </Publications>
+</Document>
