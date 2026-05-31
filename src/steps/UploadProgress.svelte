@@ -26,7 +26,7 @@
   } from '../stores.js';
   import { generateXML, previewXML } from '../lib/xml.js';
   import { hashXML, isInLocalCache, addToLocalCache } from '../lib/dedupe.js';
-  import { makeS3Client, isRemoteDuplicate, uploadXML, makeS3Key } from '../lib/s3.js';
+  import { makeS3Client, isRemoteDuplicate, uploadXML, makeS3Key, generateBatchId } from '../lib/s3.js';
   import { isDebug } from '../lib/debug.js';
   import { log } from '../lib/debug.js';
 
@@ -44,8 +44,9 @@
   let remaining = $state(0);    // rows not processed after a failure
   let xmlStrings = $state([]);  // accumulated XML strings for debug preview
 
-  const rows  = get(validRows);
-  const total = rows.length;
+  const rows    = get(validRows);
+  const total   = rows.length;
+  const batchId = generateBatchId(); // shared by all files in this upload session
 
   // In debug mode, generate all XML documents upfront and show a preview screen
   // so the developer can inspect the output before any upload happens.
@@ -97,7 +98,7 @@
 
       // --- Upload ---
       try {
-        const key = makeS3Key(hash); // incoming/{hash}-{date}-{time}-{random}.xml
+        const key = makeS3Key(hash, batchId);
         await uploadXML(s3, bucket, key, xml);
         addToLocalCache(hash); // record success so future runs skip this row
         uploaded++;

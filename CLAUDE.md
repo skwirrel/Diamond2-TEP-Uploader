@@ -27,7 +27,7 @@ This is a **fully client-side Svelte 5 + Vite** app — no server. It converts X
 FileSelection → (SheetSelection) → ColumnMappingReview → ValidationReport → UploadProgress → ResultsSummary
 ```
 
-State lives in **`src/stores.js`** (Svelte writable stores). Navigation is driven by the `currentStep` integer store using `STEPS` constants — there is no router. The `currentSection` store switches between `'wizard'` and `'errorReview'` (the latter is a stub).
+State lives in **`src/stores.js`** (Svelte writable stores). Navigation is driven by the `currentStep` integer store using `STEPS` constants — there is no router. The `currentSection` store switches between `'wizard'` and `'errorReview'`.
 
 ### Key modules and their responsibilities
 
@@ -40,7 +40,9 @@ State lives in **`src/stores.js`** (Svelte writable stores). Navigation is drive
 | `src/lib/validation.js` | Field-level + record-level validation; `validateRows()` produces `validRows`/`invalidRows` |
 | `src/lib/xml.js` | DOM-based XML generation using XPath-like notation from `COLUMN_CONFIG.xpath` |
 | `src/lib/dedupe.js` | SHA-256 via `crypto.subtle`; localStorage circular buffer (1000 hashes, key `tep_upload_hash_cache`) |
-| `src/lib/s3.js` | AWS SDK v3 S3 operations: remote dedup check (ListObjectsV2 across 3 prefixes) + PutObject upload |
+| `src/lib/s3.js` | AWS SDK v3 S3 operations: remote dedup check, PutObject upload, batch ID generation, filename parsing, paginated listing, object download |
+| `src/lib/errorCache.js` | localStorage cache (`tep_error_cache`) for error review: batch status (new/viewed/dismissed) and cached error detail summaries |
+| `src/lib/errorPipeline.js` | Error review orchestrator: `loadErrorBatches()` (list + group by batch ID) and `loadErrorDetail()` (lazy JSON + XML download) |
 | `src/lib/learnedAliases.js` | Persist user-confirmed column→field mappings to localStorage (`tep_learned_aliases`); checked at distance 0 before Levenshtein |
 | `src/lib/debug.js` | `log()` utility — no-op unless `?debug=true` in URL |
 
@@ -72,6 +74,7 @@ State lives in **`src/stores.js`** (Svelte writable stores). Navigation is drive
 | `tep_aws_*` | Credentials (4 keys) |
 | `tep_upload_hash_cache` | JSON array, circular buffer of SHA-256 hashes |
 | `tep_learned_aliases` | JSON object `{ "columnHeader": "fieldName" }` |
+| `tep_error_cache` | JSON object `{ batches: { batchId: status }, errorDetails: { filename: summary } }` |
 
 ### SheetJS was replaced with ExcelJS
 

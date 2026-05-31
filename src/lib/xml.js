@@ -1,7 +1,7 @@
 // XML generation.
 //
 // Each valid data row is converted to a complete XML document conforming to the
-// CDN Post-TX Exchange schema (xmlns="urn:cdn:pdx:1.0").
+// CDN Post-TX Exchange schema (xmlns="urn:cdn:pdx:v1").
 //
 // The approach uses the browser's built-in DOMParser and XMLSerializer rather
 // than string concatenation, which guarantees well-formed output and handles
@@ -105,7 +105,7 @@ export function generateXML(resolvedFields) {
   const parser = new DOMParser();
   const doc = parser.parseFromString(
     `<?xml version="1.0" encoding="UTF-8"?>
-<Document schemaVersion="1.0" xmlns="urn:cdn:pdx:1.0">
+<Document schemaVersion="1.0" xmlns="urn:cdn:pdx:v1">
   <Publications>
     <Publication/>
   </Publications>
@@ -132,6 +132,23 @@ export function generateXML(resolvedFields) {
     }
 
     setXPathValue(doc, pubEl, xpath, value);
+  }
+
+  // SubChannel is mandatory on every ChannelPlatform (v1 schema).
+  // If no sub-channel data was provided in the spreadsheet, inject a default
+  // core network entry. If sub-channels were provided, mark the first one
+  // as the core feed via isCore="true".
+  const cpEl = pubEl.querySelector('ChannelPlatform');
+  if (cpEl) {
+    const subChannels = Array.from(cpEl.getElementsByTagName('SubChannel'));
+    if (subChannels.length === 0) {
+      const sc = doc.createElement('SubChannel');
+      sc.setAttribute('label', 'Network');
+      sc.setAttribute('isCore', 'true');
+      cpEl.appendChild(sc);
+    } else {
+      subChannels[0].setAttribute('isCore', 'true');
+    }
   }
 
   const serializer = new XMLSerializer();

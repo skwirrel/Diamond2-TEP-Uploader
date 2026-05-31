@@ -2,9 +2,9 @@
    Design tokens
    ============================================================ */
 :root {
-  --primary:        #2563eb;
-  --primary-hover:  #1d4ed8;
-  --primary-light:  #eff6ff;
+  --primary:        #0693e3;
+  --primary-hover:  #0570b5;
+  --primary-light:  #e8f4fd;
   --success:        #16a34a;
   --success-light:  #f0fdf4;
   --error:          #dc2626;
@@ -41,8 +41,7 @@
 html { height: 100%; }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
-               Oxygen, Ubuntu, Cantarell, sans-serif;
+  font-family: Arial, Helvetica, sans-serif;
   font-size: 14px;
   line-height: 1.5;
   color: var(--text);
@@ -68,9 +67,9 @@ a:hover { text-decoration: underline; }
   top: 0;
   z-index: 100;
   height: var(--nav-height);
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  box-shadow: var(--shadow-sm);
+  background: #32373c;
+  border-bottom: none;
+  box-shadow: 0 2px 6px rgba(0,0,0,.15);
   display: flex;
   align-items: center;
   padding: 0 24px;
@@ -78,11 +77,19 @@ a:hover { text-decoration: underline; }
 }
 
 .nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   font-weight: 700;
   font-size: 1rem;
-  color: var(--text);
+  color: #ffffff;
   letter-spacing: -.01em;
   white-space: nowrap;
+}
+
+.nav-brand img {
+  height: 32px;
+  width: auto;
 }
 
 .nav-tabs {
@@ -98,12 +105,12 @@ a:hover { text-decoration: underline; }
   border-radius: var(--radius-sm);
   font-size: .875rem;
   font-weight: 500;
-  color: var(--text-muted);
+  color: rgba(255,255,255,.7);
   cursor: pointer;
   transition: background .15s, color .15s;
 }
-.nav-tab:hover { background: var(--bg); color: var(--text); }
-.nav-tab.active { background: var(--primary-light); color: var(--primary); }
+.nav-tab:hover { background: rgba(255,255,255,.1); color: #ffffff; }
+.nav-tab.active { background: rgba(255,255,255,.15); color: #ffffff; }
 
 .nav-settings {
   background: none;
@@ -115,12 +122,12 @@ a:hover { text-decoration: underline; }
   align-items: center;
   justify-content: center;
   font-size: 1.125rem;
-  color: var(--text-muted);
+  color: rgba(255,255,255,.7);
   cursor: pointer;
   transition: background .15s, color .15s;
   flex-shrink: 0;
 }
-.nav-settings:hover { background: var(--bg); color: var(--text); }
+.nav-settings:hover { background: rgba(255,255,255,.1); color: #ffffff; }
 
 /* ============================================================
    Page / content area
@@ -268,7 +275,7 @@ select {
 input:focus, select:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(37,99,235,.12);
+  box-shadow: 0 0 0 3px rgba(6,147,227,.12);
 }
 
 .field { margin-bottom: 16px; }
@@ -510,3 +517,34 @@ tbody tr.row-ok      td { background: var(--surface); }
 .mt-24 { margin-top: 24px; }
 
 .mono { font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: .8125rem; }
+
+/* ============================================================
+   Error Review — batch list
+   ============================================================ */
+.batch-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.batch-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: .875rem;
+  text-align: left;
+  transition: border-color .15s, background .15s;
+}
+.batch-card:hover { border-color: var(--primary); background: var(--primary-light); }
+.batch-card.all-ok { cursor: default; }
+.batch-card.all-ok:hover { border-color: var(--border); background: var(--surface); }
+
+.batch-left   { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.batch-right  { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }

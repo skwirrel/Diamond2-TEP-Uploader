@@ -27,7 +27,10 @@
 
 <!-- Navigation bar — persistent across all steps and sections -->
 <header class="nav">
-  <span class="nav-brand">TEP Uploader</span>
+  <span class="nav-brand">
+    <img src="/cdn-logo-white.png" alt="CDN" />
+    TEP Uploader
+  </span>
 
   <!-- Section tabs: Upload wizard vs Error Review -->
   <div class="nav-tabs">

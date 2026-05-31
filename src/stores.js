@@ -120,3 +120,19 @@ export const uploadResults = writable({
   remaining:         0,   // rows not processed due to early failure
   total:             0,   // total valid rows attempted
 });
+
+// ---------------------------------------------------------------------------
+// Error Review state
+//
+// These stores power the Error Review section. They persist across tab
+// switches so the user doesn't lose their position if they briefly switch
+// to the Upload tab and back.
+// ---------------------------------------------------------------------------
+
+// The current view within the Error Review section:
+//   'list'   — batch list (default)
+//   'detail' — viewing a specific batch's error files
+export const errorReviewView = writable('list');
+
+// The batch ID currently being viewed in detail (null when on the list view)
+export const errorReviewBatchId = writable(null);
