@@ -23,12 +23,14 @@
   import ValidationReport    from './steps/ValidationReport.svelte';
   import UploadProgress      from './steps/UploadProgress.svelte';
   import ResultsSummary      from './steps/ResultsSummary.svelte';
+
+  import cdnLogo from '/cdn-logo-white.png';
 </script>
 
 <!-- Navigation bar — persistent across all steps and sections -->
 <header class="nav">
   <span class="nav-brand">
-    <img src="/cdn-logo-white.png" alt="CDN" />
+    <img src={cdnLogo} alt="CDN" />
     TEP Uploader
   </span>
 
