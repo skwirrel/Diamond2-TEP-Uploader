@@ -43,7 +43,7 @@ export async function loadErrorBatches(s3, bucketName) {
   const errorFiles = [];
   for (const obj of errorObjects) {
     const name = obj.Key.replace(/^errors\//, '');
-    if (!name.endsWith('.xml') || name.endsWith('.xml.json')) continue;
+    if (!name.endsWith('.xml') || name.endsWith('.xml.error.json')) continue;
     const parsed = parseFilename(name);
     if (!parsed) continue;
     if (obj.LastModified && obj.LastModified.getTime() < cutoff) continue;
@@ -146,7 +146,7 @@ export async function loadErrorDetail(s3, bucketName, filename) {
     return cached;
   }
 
-  const jsonKey = `errors/${filename}.json`;
+  const jsonKey = `errors/${filename}.error.json`;
   const xmlKey  = `errors/${filename}`;
 
   // Download both in parallel — either may fail independently

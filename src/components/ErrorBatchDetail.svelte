@@ -100,7 +100,7 @@
           loading={!!loadingFiles[file.filename]}
           error={fileErrors[file.filename] ?? ''}
           ondownloadxml={() => downloadFile(file.key)}
-          ondownloadjson={() => downloadFile(`errors/${file.filename}.json`)}
+          ondownloadjson={() => downloadFile(`errors/${file.filename}.error.json`)}
         />
       {/each}
     </div>

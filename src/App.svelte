@@ -31,7 +31,7 @@
 <header class="nav">
   <span class="nav-brand">
     <img src={cdnLogo} alt="CDN" />
-    TEP Uploader
+    Diamond Integration-Lite Post-TX Uploader
   </span>
 
   <!-- Section tabs: Upload wizard vs Error Review -->
