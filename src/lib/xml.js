@@ -14,6 +14,8 @@
 import { COLUMN_CONFIG } from '../config.js';
 import { log } from './debug.js';
 
+const NS = 'urn:cdn:pdx:v1';
+
 // ---------------------------------------------------------------------------
 // Write a value at an XPath-like location within the <Publication> element.
 //
@@ -64,7 +66,7 @@ function setXPathValue(doc, pubEl, xpath, value) {
       const siblings = Array.from(current.children).filter(c => c.tagName === tagName);
       // Create missing siblings until we reach index idx
       while (siblings.length <= idx) {
-        const el = doc.createElement(tagName);
+        const el = doc.createElementNS(NS,tagName);
         current.appendChild(el);
         siblings.push(el);
       }
@@ -74,7 +76,7 @@ function setXPathValue(doc, pubEl, xpath, value) {
 
     if (isLast) {
       // Final path segment (not an attribute) — create child element with text
-      const el = doc.createElement(part);
+      const el = doc.createElementNS(NS,part);
       el.textContent = value;
       current.appendChild(el);
       return;
@@ -83,7 +85,7 @@ function setXPathValue(doc, pubEl, xpath, value) {
     // --- Intermediate path segment: navigate into or create the child element ---
     let el = Array.from(current.children).find(c => c.tagName === part);
     if (!el) {
-      el = doc.createElement(part);
+      el = doc.createElementNS(NS,part);
       current.appendChild(el);
     }
     current = el;
@@ -142,7 +144,7 @@ export function generateXML(resolvedFields) {
   if (cpEl) {
     const subChannels = Array.from(cpEl.getElementsByTagName('SubChannel'));
     if (subChannels.length === 0) {
-      const sc = doc.createElement('SubChannel');
+      const sc = doc.createElementNS(NS,'SubChannel');
       sc.setAttribute('label', 'Network');
       sc.setAttribute('isCore', 'true');
       cpEl.appendChild(sc);
