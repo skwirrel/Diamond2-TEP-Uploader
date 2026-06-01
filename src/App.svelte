@@ -11,7 +11,10 @@
   // writing to the currentStep store — this component just switches between
   // the step components based on that value.
 
-  import { currentSection, currentStep, showSettings, STEPS } from './stores.js';
+  import { get } from 'svelte/store';
+  import { currentSection, currentStep, showSettings, hasUnviewedErrors, credentials, STEPS } from './stores.js';
+  import { makeS3Client } from './lib/s3.js';
+  import { loadErrorBatches } from './lib/errorPipeline.js';
 
   import StepIndicator  from './components/StepIndicator.svelte';
   import Settings       from './components/Settings.svelte';
@@ -25,6 +28,19 @@
   import ResultsSummary      from './steps/ResultsSummary.svelte';
 
   import cdnLogo from '/cdn-logo-white.png';
+
+  // Background check for unviewed errors — fire and forget, doesn't block rendering
+  (async () => {
+    const creds = get(credentials);
+    if (!creds.accessKeyId || !creds.secretAccessKey || !creds.bucketName || !creds.region) return;
+    try {
+      const s3 = makeS3Client(creds);
+      const batches = await loadErrorBatches(s3, creds.bucketName);
+      hasUnviewedErrors.set(batches.some(b => b.status === 'new' && b.errorCount > 0));
+    } catch {
+      // Silently ignore — this is a non-critical background check
+    }
+  })();
 </script>
 
 <!-- Navigation bar — persistent across all steps and sections -->
@@ -45,6 +61,9 @@
             class:active={$currentSection === 'errorReview'}
             onclick={() => currentSection.set('errorReview')}>
       Error Review
+      {#if $hasUnviewedErrors}
+        <span class="nav-alert" title="Unviewed errors">&#9888;</span>
+      {/if}
     </button>
   </div>
 

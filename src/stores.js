@@ -136,3 +136,8 @@ export const errorReviewView = writable('list');
 
 // The batch ID currently being viewed in detail (null when on the list view)
 export const errorReviewBatchId = writable(null);
+
+// Whether any error batch has unviewed errors — drives the alert icon on the
+// Error Review nav tab. Updated by the background startup check in App.svelte
+// and by ErrorReview.svelte when batches are loaded/viewed/dismissed.
+export const hasUnviewedErrors = writable(false);

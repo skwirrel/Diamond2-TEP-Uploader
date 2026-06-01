@@ -112,6 +112,12 @@ a:hover { text-decoration: underline; }
 .nav-tab:hover { background: rgba(255,255,255,.1); color: #ffffff; }
 .nav-tab.active { background: rgba(255,255,255,.15); color: #ffffff; }
 
+.nav-alert {
+  color: #fbbf24;
+  font-size: .75rem;
+  margin-left: 2px;
+}
+
 .nav-settings {
   background: none;
   border: none;

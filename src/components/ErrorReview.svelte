@@ -13,7 +13,7 @@
   import { get } from 'svelte/store';
   import {
     credentials, showSettings,
-    errorReviewView, errorReviewBatchId,
+    errorReviewView, errorReviewBatchId, hasUnviewedErrors,
   } from '../stores.js';
   import { makeS3Client } from '../lib/s3.js';
   import { loadErrorBatches } from '../lib/errorPipeline.js';
@@ -49,6 +49,7 @@
       const creds = get(credentials);
       const s3    = makeS3Client(creds);
       batches     = await loadErrorBatches(s3, creds.bucketName);
+      syncAlertBadge();
       log('Loaded', batches.length, 'error batches');
     } catch (e) {
       error = e.message || 'Failed to load error reports from S3.';
@@ -63,10 +64,15 @@
     errorReviewView.set('detail');
   }
 
+  function syncAlertBadge() {
+    hasUnviewedErrors.set(batches.some(b => b.status === 'new' && b.errorCount > 0));
+  }
+
   function dismissBatch(batchId) {
     setBatchStatus(batchId, 'dismissed');
     // Remove from local list immediately so the UI updates
     batches = batches.filter(b => b.batchId !== batchId);
+    syncAlertBadge();
   }
 
   function backToList() {
