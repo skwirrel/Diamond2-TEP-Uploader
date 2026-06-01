@@ -25,6 +25,15 @@
     // local changes are simply discarded — the store is unchanged
   }
 
+  let cacheCleared = $state(false);
+
+  function clearCaches() {
+    localStorage.removeItem('tep_error_cache');
+    localStorage.removeItem('tep_upload_hash_cache');
+    localStorage.removeItem('tep_learned_aliases');
+    cacheCleared = true;
+  }
+
   // Close when the user clicks the dark backdrop area (not the modal box itself)
   function onBackdropClick(e) {
     if (e.target === e.currentTarget) close();
@@ -113,6 +122,17 @@
       </div>
     </div>
 
+    <div class="modal-divider">
+      <hr class="divider" />
+      <p class="text-muted text-small">
+        Clear locally cached data: error review history, upload deduplication
+        hashes, and learned column mappings. Your AWS credentials are not affected.
+      </p>
+      <button class="btn btn-danger btn-sm" onclick={clearCaches} disabled={cacheCleared}>
+        {cacheCleared ? 'Cache cleared' : 'Clear local cache'}
+      </button>
+    </div>
+
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick={close}>Cancel</button>
       <button class="btn btn-primary" onclick={save}>Save</button>
@@ -124,5 +144,8 @@
   .settings-intro {
     margin-bottom: 20px;
     line-height: 1.6;
+  }
+  .modal-divider {
+    padding: 0 24px 16px;
   }
 </style>

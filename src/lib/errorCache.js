@@ -99,8 +99,15 @@ export function getDismissedBatches() {
 // Error detail accessors — per-file cached summaries
 // ---------------------------------------------------------------------------
 export function getCachedError(filename) {
-  const cache = load();
-  return cache.errorDetails[filename]; // object or undefined
+  const cache  = load();
+  const detail = cache.errorDetails[filename];
+  // Reject stale entries from previously failed lookups (no real data)
+  if (detail && !detail.errorCount && !detail.stage) {
+    delete cache.errorDetails[filename];
+    save(cache);
+    return undefined;
+  }
+  return detail; // object or undefined
 }
 
 export function setCachedError(filename, detail) {

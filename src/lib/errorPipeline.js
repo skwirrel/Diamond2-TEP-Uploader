@@ -205,9 +205,12 @@ export async function loadErrorDetail(s3, bucketName, filename) {
     fullReport,
   };
 
-  // Persist summary to localStorage (exclude fullReport to save space)
-  const { fullReport: _, ...summary } = detail;
-  setCachedError(filename, summary);
+  // Persist summary to localStorage (exclude fullReport to save space).
+  // Only cache if we actually got a valid JSON report — don't cache failed lookups.
+  if (fullReport) {
+    const { fullReport: _, ...summary } = detail;
+    setCachedError(filename, summary);
+  }
 
   return detail;
 }
