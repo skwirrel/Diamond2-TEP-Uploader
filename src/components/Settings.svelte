@@ -10,13 +10,17 @@
   // the current wizard step. It closes on: Save, Cancel, Escape key, or
   // clicking the backdrop outside the modal box.
 
-  import { credentials, showSettings } from '../stores.js';
+  import { credentials, credentialsAreEphemeral, credentialsOrigin, setCredentials, showSettings } from '../stores.js';
 
-  // Local copy — edits here don't hit the store until save() is called
-  let local = $state({ ...$credentials });
+  // Local copy — edits here don't hit the store until save() is called.
+  // When credentials were supplied via postMessage the fields are hidden and
+  // the local copy is left empty so the keys never reach the form inputs.
+  let local = $state($credentialsOrigin
+    ? { accessKeyId: '', secretAccessKey: '', bucketName: '', region: '' }
+    : { ...$credentials });
 
   function save() {
-    credentials.set({ ...local }); // commit to store (triggers localStorage persistence)
+    setCredentials(local, true); // commit to store and persist to localStorage
     showSettings.set(false);
   }
 
@@ -54,6 +58,20 @@
     </div>
 
     <div class="modal-body">
+      {#if $credentialsOrigin}
+        <!-- Credentials arrived via postMessage — never show or allow saving them -->
+        <p class="ephemeral-note">
+          AWS connection details were supplied by the launching application
+          ({$credentialsOrigin}) and cannot be viewed or edited here.
+          {#if $credentialsAreEphemeral}
+            They are not stored in this browser and will be forgotten when
+            this tab is closed.
+          {:else}
+            They have been saved in this browser at the launching
+            application's request.
+          {/if}
+        </p>
+      {:else}
       <p class="settings-intro">
         Enter the AWS connection details provided by TEP. These are stored in
         your browser and never sent to any third-party server.
@@ -120,6 +138,7 @@
           </select>
         </div>
       </div>
+      {/if}
     </div>
 
     <div class="modal-divider">
@@ -134,8 +153,12 @@
     </div>
 
     <div class="modal-footer">
-      <button class="btn btn-secondary" onclick={close}>Cancel</button>
-      <button class="btn btn-primary" onclick={save}>Save</button>
+      {#if $credentialsOrigin}
+        <button class="btn btn-secondary" onclick={close}>Close</button>
+      {:else}
+        <button class="btn btn-secondary" onclick={close}>Cancel</button>
+        <button class="btn btn-primary" onclick={save}>Save</button>
+      {/if}
     </div>
   </div>
 </div>
@@ -144,6 +167,14 @@
   .settings-intro {
     margin-bottom: 20px;
     line-height: 1.6;
+  }
+  .ephemeral-note {
+    margin-bottom: 20px;
+    padding: 10px 12px;
+    border-left: 3px solid #e0a800;
+    background: rgba(224, 168, 0, 0.08);
+    font-size: 0.9em;
+    line-height: 1.5;
   }
   .modal-divider {
     padding: 0 24px 16px;

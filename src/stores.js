@@ -48,9 +48,25 @@ export const STEPS = Object.freeze({
 });
 
 // ---------------------------------------------------------------------------
-// AWS credentials — persisted to localStorage so the user only needs to enter
-// them once. The store auto-saves on every change via the subscribe callback.
+// AWS credentials — normally persisted to localStorage so the user only needs
+// to enter them once. A trusted caller can instead hand over session-only
+// credentials via postMessage (see lib/credentialHandoff.js); in that mode
+// nothing is written to localStorage and the credentials die with the tab.
 // ---------------------------------------------------------------------------
+
+// Whether changes to the credentials store are mirrored to localStorage.
+// Switched off when the caller sends setKey without saveKey.
+let persistCredentials = true;
+
+// UI-facing flag so components (e.g. Settings) can tell the user the current
+// credentials are session-only.
+export const credentialsAreEphemeral = writable(false);
+
+// Origin of the caller page when credentials arrived via postMessage this
+// session, null otherwise. When set, Settings hides the credential fields —
+// message-supplied keys must not be viewable or manually saveable.
+export const credentialsOrigin = writable(null);
+
 function makeCredentialsStore() {
   // Initialise from localStorage on startup (empty strings if not set)
   const store = writable({
@@ -59,8 +75,9 @@ function makeCredentialsStore() {
     bucketName:      localStorage.getItem('tep_aws_bucket_name')       || '',
     region:          localStorage.getItem('tep_aws_region')            || '',
   });
-  // Mirror every change back to localStorage
+  // Mirror every change back to localStorage — unless in session-only mode
   store.subscribe((c) => {
+    if (!persistCredentials) return;
     localStorage.setItem('tep_aws_access_key_id',     c.accessKeyId);
     localStorage.setItem('tep_aws_secret_access_key', c.secretAccessKey);
     localStorage.setItem('tep_aws_bucket_name',       c.bucketName);
@@ -69,6 +86,15 @@ function makeCredentialsStore() {
   return store;
 }
 export const credentials = makeCredentialsStore();
+
+// Replace the live credentials. save=true (re-)enables localStorage mirroring
+// and persists the new values; save=false holds them in memory only, leaving
+// whatever was previously saved in localStorage untouched.
+export function setCredentials(creds, save) {
+  persistCredentials = !!save;
+  credentialsAreEphemeral.set(!save);
+  credentials.set({ ...creds });
+}
 
 // ---------------------------------------------------------------------------
 // Upload wizard state

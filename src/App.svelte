@@ -15,6 +15,7 @@
   import { currentSection, currentStep, showSettings, hasUnviewedErrors, credentials, STEPS } from './stores.js';
   import { makeS3Client } from './lib/s3.js';
   import { loadErrorBatches } from './lib/errorPipeline.js';
+  import { initCredentialHandoff } from './lib/credentialHandoff.js';
 
   import StepIndicator  from './components/StepIndicator.svelte';
   import Settings       from './components/Settings.svelte';
@@ -28,6 +29,10 @@
   import ResultsSummary      from './steps/ResultsSummary.svelte';
 
   import cdnLogo from '/cdn-logo-white.png';
+
+  // Listen for credentials handed over by a trusted caller page (popup/iframe
+  // launch) and announce readiness to it — see lib/credentialHandoff.js
+  initCredentialHandoff();
 
   // Background check for unviewed errors — fire and forget, doesn't block rendering
   (async () => {
