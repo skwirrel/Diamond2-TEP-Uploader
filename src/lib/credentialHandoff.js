@@ -11,7 +11,8 @@
 //        {
 //          type: 'setKey',
 //          payload: {
-//            accessKeyID, secretAccessKey, bucketName, region
+//            accessKeyID, secretAccessKey, bucketName, region,
+//            sessionToken   // optional — for temporary (STS AssumeRole) creds
 //          }
 //        }
 //
@@ -40,6 +41,7 @@ export function initCredentialHandoff() {
       // Caller protocol spells it "accessKeyID"; accept the SDK spelling too
       accessKeyId:     p.accessKeyID || p.accessKeyId || '',
       secretAccessKey: p.secretAccessKey || '',
+      sessionToken:    p.sessionToken || '',
       bucketName:      p.bucketName || '',
       region:          p.region || '',
     };

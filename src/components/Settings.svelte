@@ -16,7 +16,7 @@
   // When credentials were supplied via postMessage the fields are hidden and
   // the local copy is left empty so the keys never reach the form inputs.
   let local = $state($credentialsOrigin
-    ? { accessKeyId: '', secretAccessKey: '', bucketName: '', region: '' }
+    ? { accessKeyId: '', secretAccessKey: '', sessionToken: '', bucketName: '', region: '' }
     : { ...$credentials });
 
   function save() {

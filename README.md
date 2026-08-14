@@ -92,11 +92,14 @@ win.postMessage({
   payload: {
     accessKeyID:     '…',
     secretAccessKey: '…',
+    sessionToken:    '…',   // optional — only for temporary (STS) credentials
     bucketName:      '…',
     region:          '…'
   }
 }, targetOrigin);
 ```
+
+**Temporary / assume-role credentials:** the optional `sessionToken` field supports credentials minted via STS (`AssumeRole`, `GetFederationToken`, etc.) — pass the token alongside the key pair and it is handed to the AWS SDK. This is the recommended way to integrate: the launching system assumes a role scoped to `PutObject`/`ListBucket` on the target bucket and hands over credentials that expire on their own. Note that confused-deputy protection (the `ExternalId` condition on the role's trust policy) is enforced between the launching system and AWS when it calls `AssumeRole` — it never appears in this hand-off. Session tokens exist only in the hand-off path: there is no Settings field for them and they are never written to localStorage.
 
 **Persistence:** message-supplied credentials are **never** stored. They are held in memory only — nothing is written to localStorage and they are forgotten when the tab is closed. There is deliberately no opt-in to persistence: a broadcaster integrating this way will almost certainly want users to always launch the uploader through their own system rather than bookmark it with a saved key, and the credentials handed over may well be short-lived (e.g. STS) and useless if persisted anyway. Any credentials the user previously saved themselves via Settings are left untouched.
 

@@ -59,6 +59,8 @@ export function makeS3Client(credentials) {
     credentials: {
       accessKeyId:     credentials.accessKeyId,
       secretAccessKey: credentials.secretAccessKey,
+      // Present only for temporary credentials (e.g. STS AssumeRole)
+      ...(credentials.sessionToken ? { sessionToken: credentials.sessionToken } : {}),
     },
   });
 }

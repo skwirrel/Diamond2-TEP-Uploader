@@ -73,10 +73,15 @@ function makeCredentialsStore() {
   const store = writable({
     accessKeyId:     localStorage.getItem('tep_aws_access_key_id')     || '',
     secretAccessKey: localStorage.getItem('tep_aws_secret_access_key') || '',
+    // Only present for temporary (STS AssumeRole) credentials, which arrive
+    // exclusively via the postMessage hand-off — memory only, never persisted,
+    // no Settings UI.
+    sessionToken:    '',
     bucketName:      localStorage.getItem('tep_aws_bucket_name')       || '',
     region:          localStorage.getItem('tep_aws_region')            || '',
   });
-  // Mirror every change back to localStorage — unless in session-only mode
+  // Mirror every change back to localStorage — unless in session-only mode.
+  // sessionToken is deliberately not mirrored (see above).
   store.subscribe((c) => {
     if (!persistCredentials) return;
     localStorage.setItem('tep_aws_access_key_id',     c.accessKeyId);

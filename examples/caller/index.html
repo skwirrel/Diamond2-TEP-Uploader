@@ -88,6 +88,9 @@
   <label for="secretAccessKey">Secret Access Key</label>
   <input id="secretAccessKey" type="text" value="wJalrXUtnFEMI/K7MDENG/bPxRcnFiCYEXAMPLEKEY" spellcheck="false">
 
+  <label for="sessionToken">Session Token (leave blank unless using temporary credentials)</label>
+  <input id="sessionToken" type="text" value="" spellcheck="false">
+
   <label for="bucketName">Bucket Name</label>
   <input id="bucketName" type="text" value="example-tep-bucket" spellcheck="false">
 
@@ -128,6 +131,7 @@
     const payload = {
       accessKeyID:     document.getElementById('accessKeyID').value.trim(),
       secretAccessKey: document.getElementById('secretAccessKey').value.trim(),
+      sessionToken:    document.getElementById('sessionToken').value.trim(),
       bucketName:      document.getElementById('bucketName').value.trim(),
       region:          document.getElementById('region').value.trim(),
     };
