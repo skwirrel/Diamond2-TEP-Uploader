@@ -10,7 +10,7 @@
   // the current wizard step. It closes on: Save, Cancel, Escape key, or
   // clicking the backdrop outside the modal box.
 
-  import { credentials, credentialsAreEphemeral, credentialsOrigin, setCredentials, showSettings } from '../stores.js';
+  import { credentials, credentialsOrigin, setCredentials, showSettings } from '../stores.js';
 
   // Local copy — edits here don't hit the store until save() is called.
   // When credentials were supplied via postMessage the fields are hidden and
@@ -62,14 +62,9 @@
         <!-- Credentials arrived via postMessage — never show or allow saving them -->
         <p class="ephemeral-note">
           AWS connection details were supplied by the launching application
-          ({$credentialsOrigin}) and cannot be viewed or edited here.
-          {#if $credentialsAreEphemeral}
-            They are not stored in this browser and will be forgotten when
-            this tab is closed.
-          {:else}
-            They have been saved in this browser at the launching
-            application's request.
-          {/if}
+          ({$credentialsOrigin}) and cannot be viewed or edited here. They
+          are never stored in this browser and will be forgotten when this
+          tab is closed.
         </p>
       {:else}
       <p class="settings-intro">

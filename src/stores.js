@@ -55,7 +55,8 @@ export const STEPS = Object.freeze({
 // ---------------------------------------------------------------------------
 
 // Whether changes to the credentials store are mirrored to localStorage.
-// Switched off when the caller sends setKey without saveKey.
+// Switched off when credentials arrive via postMessage — message-supplied
+// credentials are never persisted.
 let persistCredentials = true;
 
 // UI-facing flag so components (e.g. Settings) can tell the user the current

@@ -2,7 +2,7 @@
 //
 // A caller page opens this app in a popup (or iframe) and passes AWS
 // credentials directly via postMessage, keeping them out of URLs, browser
-// history, and — unless the caller opts in — localStorage.
+// history, and localStorage.
 //
 // Protocol:
 //   1. Caller opens the app with window.open() (or embeds it in an iframe)
@@ -10,21 +10,23 @@
 //   3. Caller replies with:
 //        {
 //          type: 'setKey',
-//          saveKey: boolean,          // optional — defaults to false
 //          payload: {
 //            accessKeyID, secretAccessKey, bucketName, region
 //          }
 //        }
 //
-// Unless saveKey is explicitly true the credentials are held in memory only:
-// nothing is written to localStorage and they die when the tab is closed.
-// Previously saved credentials in localStorage are left untouched.
+// Message-supplied credentials are NEVER persisted: they are held in memory
+// only and die when the tab is closed. A broadcaster integrating this way
+// will want users to always come through the launcher (and the keys may well
+// be short-lived STS credentials anyway), so there is deliberately no opt-in
+// to persistence. Any credentials the user previously saved themselves in
+// localStorage are left untouched.
 //
 // Messages are accepted from ANY origin — credentials flow into the app, not
 // out of it, so nothing can leak this way. The sender's origin is recorded in
 // the credentialsOrigin store and shown to the user in Settings, and the
 // credential fields there are hidden for the rest of the session so message-
-// supplied keys can never be viewed or manually re-saved.
+// supplied keys can never be viewed or manually saved.
 
 import { setCredentials, credentialsOrigin } from '../stores.js';
 import { log } from './debug.js';
@@ -46,9 +48,9 @@ export function initCredentialHandoff() {
       return;
     }
 
-    setCredentials(creds, e.data.saveKey === true);
+    setCredentials(creds, false);
     credentialsOrigin.set(e.origin);
-    log(`credentials received from ${e.origin} (saveKey=${e.data.saveKey === true})`);
+    log(`credentials received from ${e.origin} (session only, never persisted)`);
   });
 
   // Announce readiness so the caller knows it can send setKey. The message

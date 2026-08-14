@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TEP Uploader — Example Caller</title>
+<style>
+  :root {
+    --border: #d1d5db;
+    --muted:  #6b7280;
+    --accent: #2563eb;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: #f3f4f6;
+    color: #111827;
+    margin: 0;
+    padding: 40px 16px;
+  }
+  .card {
+    max-width: 560px;
+    margin: 0 auto;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 28px 32px;
+  }
+  h1 { font-size: 1.3rem; margin: 0 0 4px; }
+  .subtitle { color: var(--muted); font-size: .9rem; margin: 0 0 24px; }
+  label {
+    display: block;
+    font-size: .85rem;
+    font-weight: 600;
+    margin: 14px 0 4px;
+  }
+  input {
+    width: 100%;
+    padding: 8px 10px;
+    font-size: .95rem;
+    font-family: inherit;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+  }
+  input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  button {
+    margin-top: 22px;
+    width: 100%;
+    padding: 10px;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #fff;
+    background: var(--accent);
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+  button:hover { background: #1d4ed8; }
+  #status {
+    margin-top: 20px;
+    padding: 10px 12px;
+    background: #f9fafb;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    font-family: ui-monospace, monospace;
+    font-size: .8rem;
+    white-space: pre-wrap;
+    min-height: 3em;
+    color: #374151;
+  }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <h1>TEP Uploader — Example Caller</h1>
+  <p class="subtitle">
+    Test harness for the postMessage credential hand-off. Fills in dummy
+    values by default — replace them with real ones to test an actual upload.
+  </p>
+
+  <label for="url">Uploader URL</label>
+  <input id="url" type="text" value="https://skwirrel.github.io/Diamond2-TEP-Uploader/" spellcheck="false">
+
+  <label for="accessKeyID">Access Key ID</label>
+  <input id="accessKeyID" type="text" value="AKIAIOSFODNN7EXAMPLE" spellcheck="false">
+
+  <label for="secretAccessKey">Secret Access Key</label>
+  <input id="secretAccessKey" type="text" value="wJalrXUtnFEMI/K7MDENG/bPxRcnFiCYEXAMPLEKEY" spellcheck="false">
+
+  <label for="bucketName">Bucket Name</label>
+  <input id="bucketName" type="text" value="example-tep-bucket" spellcheck="false">
+
+  <label for="region">Region</label>
+  <input id="region" type="text" value="eu-west-2" spellcheck="false">
+
+  <button id="launch">Launch uploader</button>
+
+  <div id="status">Waiting to launch…</div>
+</div>
+
+<script>
+  const statusBox = document.getElementById('status');
+  let currentListener = null;
+
+  function log(msg) {
+    statusBox.textContent += '\n' + msg;
+  }
+
+  document.getElementById('launch').addEventListener('click', () => {
+    statusBox.textContent = 'Launching…';
+
+    // Abandon any handshake still pending from a previous launch
+    if (currentListener) {
+      window.removeEventListener('message', currentListener);
+      currentListener = null;
+    }
+
+    let spaUrl, spaOrigin;
+    try {
+      spaUrl = document.getElementById('url').value.trim();
+      spaOrigin = new URL(spaUrl).origin;
+    } catch {
+      log('Invalid uploader URL.');
+      return;
+    }
+
+    const payload = {
+      accessKeyID:     document.getElementById('accessKeyID').value.trim(),
+      secretAccessKey: document.getElementById('secretAccessKey').value.trim(),
+      bucketName:      document.getElementById('bucketName').value.trim(),
+      region:          document.getElementById('region').value.trim(),
+    };
+
+    // Must happen directly in the click handler or the popup blocker eats it
+    const win = window.open(spaUrl, 'tep-uploader');
+    if (!win) {
+      log('Popup blocked — allow popups for this page and try again.');
+      return;
+    }
+    log('Popup opened, waiting for ready signal from ' + spaOrigin + ' …');
+
+    const timeout = setTimeout(() => {
+      window.removeEventListener('message', onReady);
+      currentListener = null;
+      log('Timed out after 15s — uploader never signalled ready. Is the URL correct?');
+    }, 15000);
+
+    function onReady(e) {
+      if (e.origin !== spaOrigin) return;
+      if (e.source !== win) return;
+      if (e.data?.type !== 'ready') return;
+
+      clearTimeout(timeout);
+      window.removeEventListener('message', onReady);
+      currentListener = null;
+
+      win.postMessage({ type: 'setKey', payload }, spaOrigin);
+      log('Ready signal received — credentials sent.');
+      win.focus();
+    }
+
+    currentListener = onReady;
+    window.addEventListener('message', onReady);
+  });
+</script>
+
+</body>
+</html>

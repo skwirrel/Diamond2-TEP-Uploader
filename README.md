@@ -36,6 +36,10 @@ TEPUploader/
 │       ├── sample_broadcast.xml      ← example XML output for a broadcast row
 │       └── sample_ondemand.xml       ← example XML output for an on-demand row
 │
+├── examples/
+│   └── caller/
+│       └── index.html          ← test harness page for the postMessage credential hand-off
+│
 ├── src/
 │   ├── main.js                 ← application entry point (mounts Svelte root)
 │   ├── app.css                 ← global design system (CSS variables, layout, components)
@@ -85,7 +89,6 @@ The protocol:
 ```js
 win.postMessage({
   type: 'setKey',
-  saveKey: false,           // optional — see below
   payload: {
     accessKeyID:     '…',
     secretAccessKey: '…',
@@ -95,9 +98,9 @@ win.postMessage({
 }, targetOrigin);
 ```
 
-**Persistence (`saveKey`):** defaults to `false`. Unless the caller passes literally `saveKey: true`, the credentials are held in memory only — nothing is written to localStorage and they are forgotten when the tab is closed. Any credentials the user previously saved themselves are left untouched.
+**Persistence:** message-supplied credentials are **never** stored. They are held in memory only — nothing is written to localStorage and they are forgotten when the tab is closed. There is deliberately no opt-in to persistence: a broadcaster integrating this way will almost certainly want users to always launch the uploader through their own system rather than bookmark it with a saved key, and the credentials handed over may well be short-lived (e.g. STS) and useless if persisted anyway. Any credentials the user previously saved themselves via Settings are left untouched.
 
-**Visibility:** when credentials arrive by message, the Settings modal hides the credential fields and the Save button for the rest of the session. It instead shows a notice naming the origin that supplied them and whether they were persisted. Message-supplied keys can never be viewed, edited, or manually saved by the user.
+**Visibility:** when credentials arrive by message, the Settings modal hides the credential fields and the Save button for the rest of the session. It instead shows a notice naming the origin that supplied them. Message-supplied keys can never be viewed, edited, or manually saved by the user.
 
 **Origins:** the uploader accepts `setKey` from any origin (credentials only flow into the app, never out) and posts its `ready` announcement with targetOrigin `'*'` (the message carries no data). The caller should still verify `event.origin` on the `ready` message and pass the uploader's real origin as `targetOrigin` when sending `setKey`, so the keys cannot be delivered to an unexpected window.
 
@@ -122,7 +125,7 @@ function launchUploader(creds) {
     if (e.data?.type !== 'ready') return;
     clearTimeout(timeout);
     window.removeEventListener('message', onReady);
-    win.postMessage({ type: 'setKey', saveKey: false, payload: creds }, SPA_ORIGIN);
+    win.postMessage({ type: 'setKey', payload: creds }, SPA_ORIGIN);
     win.focus();
   }
 
@@ -131,6 +134,8 @@ function launchUploader(creds) {
 ```
 
 Prefer short-lived credentials (e.g. issued via STS `AssumeRole`, scoped to `PutObject` on the target bucket) over long-lived IAM user keys — the browser is not a good permanent home for secrets.
+
+A working test harness implementing this handshake — with editable credential fields and a configurable uploader URL — is in [examples/caller/index.html](examples/caller/index.html). It can be opened straight from the filesystem.
 
 ## Development
 
