@@ -21,6 +21,30 @@ const BOOLEAN_TRUTHY = ['true', 'yes', 'y', '1'];
 const BOOLEAN_FALSY  = ['false', 'no', 'n', '0'];
 const BOOLEAN_ALL    = [...BOOLEAN_TRUTHY, ...BOOLEAN_FALSY];
 
+// Strict ISO 8601 datetime with an explicit timezone (Z or ±HH:MM / ±HHMM).
+// Seconds and fractional seconds are optional. Anything without a timezone
+// designator is ambiguous (UTC vs local) and is deliberately NOT matched.
+const ISO_DATETIME_RE =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})$/;
+
+// Parse a text cell as a strict ISO 8601 datetime.
+// Returns a valid Date, or null if the string is not acceptable.
+function parseIsoDatetime(value) {
+  if (typeof value !== 'string') return null;
+  const s = value.trim();
+  if (!ISO_DATETIME_RE.test(s)) return null;
+  const d = new Date(s);
+  if (isNaN(d.getTime())) return null;
+  // JS Date rolls over impossible calendar dates (2026-02-30 → 2026-03-02)
+  // instead of failing; verify the Y-M-D part is a real calendar date
+  const [year, month, day] = s.slice(0, 10).split('-').map(Number);
+  const check = new Date(Date.UTC(year, month - 1, day));
+  if (check.getUTCFullYear() !== year || check.getUTCMonth() !== month - 1 || check.getUTCDate() !== day) {
+    return null;
+  }
+  return d;
+}
+
 // ---------------------------------------------------------------------------
 // Validate a single raw cell value against a field's type rules.
 // Returns an error string describing the problem, or null if the value is valid.
@@ -45,15 +69,17 @@ function validateField(fieldConfig, rawValue) {
       return null;
 
     case 'datetime':
-      // The cell must be a proper Date object (i.e. the Excel column was
-      // formatted as Date, not as text). If the user types a date as plain
-      // text we deliberately reject it with a helpful message — a text cell
-      // formatted to look like a date could be in any regional format and
-      // parsing it would be unreliable.
-      if (!(rawValue instanceof Date) || isNaN(rawValue.getTime())) {
-        return `${fieldName} must be a Date-formatted cell (not plain text)`;
-      }
-      return null;
+      // Accepted forms:
+      //   1. A proper Date cell (Excel stores it as a real date value)
+      //   2. A text cell containing a strict ISO 8601 datetime with an
+      //      explicit timezone, e.g. "2026-06-01T20:00:00Z"
+      // Any other text is rejected — a text cell formatted to look like a
+      // date could be in any regional format (01/06 vs 06/01) and a string
+      // without a timezone is ambiguous (UTC vs local), so parsing either
+      // would be unreliable.
+      if (rawValue instanceof Date && !isNaN(rawValue.getTime())) return null;
+      if (parseIsoDatetime(rawValue)) return null;
+      return `${fieldName} must be a Date-formatted cell or an ISO 8601 string with timezone (e.g. 2026-06-01T20:00:00Z)`;
 
     case 'boolean': {
       // Native spreadsheet boolean cells come through as JS booleans — always valid
@@ -108,6 +134,10 @@ function resolveValue(fieldConfig, rawValue, resolvedRowSoFar) {
   if (type === 'datetime') {
     // Date objects are serialised as ISO 8601 UTC strings (e.g. "2025-03-15T20:00:00.000Z")
     if (val instanceof Date) return val.toISOString();
+    // Text cells that passed validation as strict ISO 8601 are normalised the
+    // same way, so XML output is identical regardless of how the cell was stored
+    const parsed = parseIsoDatetime(val);
+    if (parsed) return parsed.toISOString();
     return null; // shouldn't reach here if validateField passed, but be safe
   }
 

@@ -87,8 +87,8 @@ export function getRows(workbook, sheetName, maxRows = Infinity) {
 // rather than raw numbers so the intent is clear.
 //
 // Critical: Date cells must come back as Date objects, not strings. The
-// validation layer (validation.js) checks instanceof Date to enforce that
-// date columns are properly formatted in the spreadsheet.
+// validation layer (validation.js) accepts datetime values as either Date
+// objects or strict ISO 8601 text — text in any other date format is rejected.
 // ---------------------------------------------------------------------------
 function extractCellValue(cell) {
   if (!cell) return null;

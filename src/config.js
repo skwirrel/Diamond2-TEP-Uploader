@@ -29,8 +29,9 @@
 //   type  {'string' | 'datetime' | 'boolean' | 'enum'}
 //     Controls validation and value resolution:
 //       string   — any non-empty string
-//       datetime — must be a Date cell in the spreadsheet (not plain text);
-//                  output as ISO 8601 UTC string
+//       datetime — a Date cell in the spreadsheet, OR a text cell containing
+//                  a strict ISO 8601 datetime with explicit timezone
+//                  (e.g. "2026-06-01T20:00:00Z"); output as ISO 8601 UTC string
 //       boolean  — native boolean cell OR: true/false, yes/no, y/n, 1/0 (case-insensitive);
 //                  output as "true" or "false"
 //       enum     — must exactly match one of the values in enumValues
