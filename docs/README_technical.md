@@ -435,11 +435,11 @@ The `type` property controls how a field value is validated in Step 8 and how it
 | Type | Validation rule | Value used in XML |
 |---|---|---|
 | `"string"` | Any non-empty string (mandatory) or any string (optional), after trimming. | The trimmed string value. |
-| `"datetime"` | The cell must be a Date object (ExcelJS returns native `Date` for date-formatted cells). Text cells that look like dates are rejected — the user must format the column as Date in their spreadsheet. | Converted to ISO 8601 UTC using `date.toISOString()`. |
+| `"datetime"` | The cell must be either a Date object (ExcelJS returns native `Date` for date-formatted cells) or a text cell containing a strict ISO 8601 datetime with an explicit timezone — `Z` or `±HH:MM`/`±HHMM`, seconds and fractional seconds optional (e.g. `2026-06-01T20:00:00Z`). Text in any other format is rejected: regional formats (`01/06/2026`) are ambiguous, as are ISO strings without a timezone (UTC vs local). Impossible calendar dates that JS `Date` would silently roll over (e.g. `2026-02-30`) are also rejected. | Converted to ISO 8601 UTC using `date.toISOString()`; accepted ISO text is parsed and normalised the same way, so output is identical for both forms. |
 | `"boolean"` | Accepts a native boolean cell or any of the following strings (case-insensitive): `true`/`false`, `yes`/`no`, `y`/`n`, `1`/`0`. Any other value is an error. | Normalised to the lowercase string `"true"` or `"false"`. |
 | `"enum"` | Must be one of the values listed in the `enumValues` array (case-sensitive). | The value as-is. |
 
-> **Timezone note:** Date cells in spreadsheets carry no timezone information. ExcelJS interprets them as local time. The `toISOString()` conversion produces a UTC string, which will apply the user's local timezone offset. Users in non-UTC timezones should ensure their date/time values represent the intended UTC moment.
+> **Timezone note:** Date cells in spreadsheets carry no timezone information. ExcelJS interprets them as local time. The `toISOString()` conversion produces a UTC string, which will apply the user's local timezone offset. Users in non-UTC timezones should ensure their date/time values represent the intended UTC moment. ISO 8601 text cells do not have this ambiguity — their explicit timezone designator is honoured (which is why one is required).
 
 ### Record Validator
 

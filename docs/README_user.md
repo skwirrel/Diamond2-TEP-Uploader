@@ -51,14 +51,14 @@ You must provide data for the following fields:
 - **Publication ID** — a unique identifier for this broadcast event
 - **Episode ID** — the identifier for the episode that was broadcast
 - **Availability Mode** — must be exactly `broadcast` or `onDemand`
-- **Publication Date and Time** — the transmission date/time (for broadcast) or start of availability window (for on-demand). The column must be formatted as a **Date** in your spreadsheet — the app will handle the rest.
+- **Publication Date and Time** — the transmission date/time (for broadcast) or start of availability window (for on-demand). The column should be formatted as a **Date** in your spreadsheet — the app will handle the rest. Alternatively, a text cell is accepted if it contains a full ISO 8601 date/time including a timezone, e.g. `2026-06-01T20:00:00Z`. Text in any other date format (e.g. `01/06/2026 20:00`) is rejected.
 - **Channel Label** — the channel or platform name (e.g. "BBC One", "iPlayer")
 
 ### Optional Fields
 
 - **Is Repeat?** — whether this is a repeat broadcast (defaults to `true` if omitted). Accepted values: `true`/`false`, `yes`/`no`, `y`/`n`, or `1`/`0`.
 - **Is Primary?** — whether this is the primary broadcast (defaults to `false` if omitted). Accepted values: same as above.
-- **Window Closure Date and Time** — end of availability window. Must be a **Date**-formatted column. Only valid for on-demand content (`Availability Mode: onDemand`). Including this field on a broadcast row will cause a validation error.
+- **Window Closure Date and Time** — end of availability window. Must be a **Date**-formatted column (or ISO 8601 text with timezone, as for Publication Date and Time). Only valid for on-demand content (`Availability Mode: onDemand`). Including this field on a broadcast row will cause a validation error.
 - **Channel ID** — a machine-readable channel identifier (defaults to the Channel Label if omitted)
 - **Sub-channel 1–4 Label and ID** — regional variants or sub-channels (e.g. "BBC One Wales"). Up to four sub-channels are supported. If a sub-channel ID is omitted, it defaults to the sub-channel label.
 
@@ -66,7 +66,7 @@ You must provide data for the following fields:
 
 Before uploading anything, the app checks every row in your spreadsheet for data problems. This includes:
 
-- **Format checks** — date/time columns must be formatted as Date in your spreadsheet (not plain text); Availability Mode must be `broadcast` or `onDemand`; Is Repeat? and Is Primary? must be `true` or `false`.
+- **Format checks** — date/time columns must be formatted as Date in your spreadsheet, or contain ISO 8601 text with a timezone (e.g. `2026-06-01T20:00:00Z`); text in any other date format is rejected. Availability Mode must be `broadcast` or `onDemand`; Is Repeat? and Is Primary? must be `true` or `false`.
 - **Cross-field checks** — for example, Window Closure Date and Time may only appear on rows where Availability Mode is `onDemand`.
 
 If any rows fail validation, a **Validation Report** is shown. Each failing row is listed with all of its field values; invalid fields are highlighted in red with a description of the problem. You can either go back to correct your spreadsheet, or choose to proceed with only the valid rows (invalid rows will be skipped and reported in the final results).
@@ -140,6 +140,6 @@ The actual files remain in the S3 bucket — the dismiss action only hides them 
 
 - You can upload the same spreadsheet multiple times without worrying about creating duplicates — the app will detect and skip them.
 - **The app learns your column names.** The first time you confirm a column mapping on the Column Matching screen, the app saves your column header for that field. Next time you upload a spreadsheet with the same column names, the app will match them automatically — no review needed.
-- Make sure your date/time columns are formatted as **Date** in Excel or Google Sheets, not as plain text. The app reads the cell type directly and will flag text cells as invalid even if they look like dates.
+- Ideally, format your date/time columns as **Date** in Excel or Google Sheets. The app reads the cell type directly, so a text cell will be flagged as invalid even if it *looks* like a date — applying a date display format to a text cell does not make it a real date. The one exception: text cells are accepted when they contain a complete ISO 8601 date/time with timezone, e.g. `2026-06-01T20:00:00Z`. To check whether a cell holds a real date or text, use `=ISNUMBER(A2)` — real dates return TRUE.
 - If you change browsers or clear your browser data, you will need to re-enter your AWS settings. Previously uploaded data is not affected — it is already safely stored.
 - The app works entirely in your browser. Your AWS credentials and data are not sent to any third-party server.

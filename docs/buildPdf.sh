@@ -10,7 +10,7 @@ for md in "$DIR"/*.md; do
   echo "Converting: $(basename "$md") → $(basename "$pdf")"
   pandoc "$md" -o "$pdf" --pdf-engine=wkhtmltopdf \
     --metadata title="$(basename "${md%.md}")"
-  ((count++))
+  count=$((count + 1))
 done
 
 echo "Done. $count file(s) converted."
