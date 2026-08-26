@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'none'; connect-src https://iam.amazonaws.com; img-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; form-action 'none'; base-uri 'none'">
+<title>Access Key Rotation — Diamond 2 Upload</title>
+<style>
+/* Design tokens — kept in step with the Integration-Lite uploader (src/app.css) */
+:root{
+  --primary:        #0693e3;
+  --primary-hover:  #0570b5;
+  --primary-light:  #e8f4fd;
+  --success:        #16a34a;
+  --success-light:  #f0fdf4;
+  --error:          #dc2626;
+  --error-light:    #fef2f2;
+  --warning:        #d97706;
+  --warning-light:  #fffbeb;
+
+  --bg:             #f1f5f9;
+  --surface:        #ffffff;
+  --border:         #e2e8f0;
+  --border-strong:  #cbd5e1;
+
+  --text:           #0f172a;
+  --text-muted:     #64748b;
+  --text-subtle:    #94a3b8;
+
+  --radius-sm:  4px;
+  --radius:     8px;
+  --radius-lg:  12px;
+
+  --shadow:     0 1px 4px rgba(0,0,0,.08), 0 2px 8px rgba(0,0,0,.06);
+
+  --mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{height:100%}
+body{
+  font-family: Arial, Helvetica, sans-serif;
+  font-size:14px;
+  line-height:1.5;
+  color:var(--text);
+  background:var(--bg);
+  min-height:100%;
+  padding-bottom:64px;
+}
+
+/* ---- header bar (matches the uploader nav) ---- */
+.nav{
+  height:56px;
+  background:#32373c;
+  box-shadow:0 2px 6px rgba(0,0,0,.15);
+  display:flex;
+  align-items:center;
+  padding:0 24px;
+  gap:10px;
+  font-weight:700;
+  font-size:1rem;
+  color:#ffffff;
+  letter-spacing:-.01em;
+  white-space:nowrap;
+}
+.nav img{height:32px;width:auto}
+.nav .sub{
+  margin-left:auto;
+  font-family:var(--mono);
+  font-size:.6875rem;
+  font-weight:400;
+  color:rgba(255,255,255,.55);
+  letter-spacing:.05em;
+  white-space:normal;
+  text-align:right;
+}
+
+.page{max-width:860px;margin:0 auto;padding:32px 16px 0}
+.intro{margin-bottom:24px}
+.intro h1{font-size:1.5rem;font-weight:700;line-height:1.25;margin-bottom:4px}
+.intro p{color:var(--text-muted);max-width:64ch}
+
+/* ---- step cards ---- */
+.card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius-lg);
+  box-shadow:var(--shadow);
+  padding:24px 28px;
+  margin-bottom:16px;
+}
+.card[hidden]{display:none}
+.card.is-locked{opacity:.5;pointer-events:none}
+
+.step-head{display:flex;align-items:center;gap:12px;margin-bottom:4px}
+.step-dot{
+  width:28px;height:28px;border-radius:50%;
+  border:2px solid var(--border);
+  background:var(--surface);
+  display:flex;align-items:center;justify-content:center;
+  font-size:.75rem;font-weight:600;color:var(--text-muted);
+  flex-shrink:0;
+  transition:background .2s,border-color .2s;
+}
+.card.is-active .step-dot{border-color:var(--primary);background:var(--primary);color:#fff}
+.card.is-done   .step-dot{border-color:var(--success);background:var(--success);color:#fff}
+.card.is-alert  .step-dot{border-color:var(--error);background:var(--error);color:#fff}
+.step-head h2{font-size:1.0625rem;font-weight:600}
+.lede{color:var(--text-muted);margin:0 0 16px;max-width:64ch}
+
+/* ---- form ---- */
+label.field{display:block;margin-bottom:16px}
+label.field span{
+  display:block;font-size:.8125rem;font-weight:500;
+  color:var(--text);margin-bottom:4px;
+}
+input[type=text],input[type=password]{
+  width:100%;padding:7px 10px;
+  border:1px solid var(--border-strong);border-radius:var(--radius);
+  font-size:.875rem;font-family:var(--mono);
+  color:var(--text);background:var(--surface);
+  transition:border-color .15s,box-shadow .15s;
+}
+input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(6,147,227,.12)}
+button:focus-visible,summary:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:14px}
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  padding:8px 18px;border-radius:var(--radius);
+  font-size:.875rem;font-weight:500;font-family:inherit;
+  border:1px solid transparent;cursor:pointer;
+  transition:background .15s,border-color .15s,opacity .15s;
+  white-space:nowrap;
+}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn-primary{background:var(--primary);color:#fff}
+.btn-primary:hover:not(:disabled){background:var(--primary-hover)}
+.btn-secondary{background:var(--surface);border-color:var(--border-strong);color:var(--text)}
+.btn-secondary:hover:not(:disabled){background:var(--bg)}
+.btn-danger{background:var(--error-light);color:var(--error);border-color:#fecaca}
+.btn-danger:hover:not(:disabled){background:#fee2e2}
+
+/* ---- key slots ---- */
+.slots{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0 4px}
+.slot{
+  border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);
+  padding:12px 14px;min-width:0;
+}
+.slot.empty{background:var(--bg);border-style:dashed}
+.slot .cap{
+  display:flex;justify-content:space-between;align-items:center;gap:8px;
+  font-size:.6875rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;
+  color:var(--text-muted);
+  border-bottom:1px solid var(--border);padding-bottom:6px;margin-bottom:8px;
+}
+.pip{width:9px;height:9px;border-radius:50%;background:var(--border-strong);flex:none}
+.pip.on{background:var(--success)}
+.pip.off{background:var(--text-subtle)}
+.pip.old{background:var(--error)}
+.slot .kid{font-family:var(--mono);font-size:.8125rem;word-break:break-all}
+.slot dl{margin-top:8px;display:grid;grid-template-columns:auto 1fr;gap:2px 10px;font-size:.75rem}
+.slot dt{font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text-muted);align-self:center;font-size:.6875rem}
+.slot dd{font-family:var(--mono)}
+.slot .vacant{color:var(--text-subtle);font-size:.8125rem;font-style:italic}
+.age-warn{color:var(--error);font-weight:700}
+
+/* ---- credential readout ---- */
+.readout{
+  border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);
+  padding:12px 14px;margin-top:14px;
+}
+.readout .line{display:grid;grid-template-columns:150px 1fr;gap:8px;align-items:start;padding:6px 0}
+.readout .line+.line{border-top:1px solid var(--border)}
+.readout .k{font-size:.6875rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text-muted);padding-top:2px}
+.readout .v{font-family:var(--mono);font-size:.8125rem;word-break:break-all}
+
+.warnstrip{
+  background:var(--warning-light);color:var(--warning);border:1px solid #fde68a;
+  border-radius:var(--radius);font-size:.8125rem;font-weight:600;
+  padding:8px 12px;margin-top:14px;
+}
+.confirm{display:flex;gap:9px;align-items:flex-start;margin-top:14px;font-size:.875rem;cursor:pointer}
+.confirm input{margin-top:3px;flex:none;width:16px;height:16px;cursor:pointer}
+
+/* ---- status messages (matches uploader .alert) ---- */
+.status{
+  display:block;margin-top:14px;padding:12px 16px;
+  border-radius:var(--radius);font-size:.875rem;
+  background:var(--primary-light);color:var(--primary);border:1px solid #bfdbfe;
+}
+.status.err{background:var(--error-light);color:var(--error);border-color:#fecaca}
+.status.ok{background:var(--success-light);color:var(--success);border-color:#bbf7d0}
+.status .code{font-family:var(--mono);font-size:.75rem;display:block;margin-top:4px;opacity:.8}
+
+/* ---- stored-key notice ---- */
+.stored-note{
+  background:var(--primary-light);color:var(--primary);border:1px solid #bfdbfe;
+  border-radius:var(--radius);font-size:.875rem;
+  padding:12px 16px;margin-bottom:16px;
+}
+
+details.notes{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius-lg);box-shadow:var(--shadow);
+  margin-bottom:16px;
+}
+details.notes summary{
+  cursor:pointer;padding:14px 28px;
+  font-size:.8125rem;font-weight:600;color:var(--text-muted);
+}
+details.notes .inner{padding:0 28px 20px;font-size:.875rem;color:var(--text-muted);max-width:70ch}
+details.notes .inner p{margin-bottom:10px}
+details.notes code{font-family:var(--mono);font-size:.8125rem;background:var(--bg);padding:1px 5px;border-radius:3px}
+
+footer{
+  max-width:860px;margin:8px auto 0;padding:0 16px;
+  font-size:.75rem;color:var(--text-subtle);
+}
+.stamp{font-family:var(--mono);font-size:.6875rem;color:var(--text-subtle)}
+
+@media (max-width:620px){
+  .slots{grid-template-columns:1fr}
+  .readout .line{grid-template-columns:1fr}
+  .nav .sub{display:none}
+}
+@media (prefers-reduced-motion:reduce){
+  *{transition:none !important}
+}
+</style>
+</head>
+<body>
+
+<header class="nav">
+  <img src="data:image/png;base64,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" alt="CDN">
+  Diamond 2 Access Key Rotation
+  <span class="sub">iam.amazonaws.com · <span id="clockStamp">clock not yet checked</span></span>
+</header>
+
+<main class="page">
+
+  <div class="intro">
+    <h1>Access key rotation</h1>
+    <p>Replace the AWS access key you use to upload Diamond 2 XML files. Your current key is used to mint its
+       replacement and is then retired. Nothing you enter here leaves your browser except to AWS.</p>
+  </div>
+
+  <!-- 1 -->
+  <section class="card is-active" id="p1">
+    <div class="step-head"><span class="step-dot">1</span><h2>Current key</h2></div>
+    <p class="lede">Enter the access key you use today. It needs permission to manage its own keys, which is
+      how your key was issued.</p>
+    <div id="storedNote"></div>
+    <label class="field"><span>Access Key ID</span>
+      <input type="text" id="ak" placeholder="AKIA…" autocomplete="off" spellcheck="false"></label>
+    <label class="field"><span>Secret Access Key</span>
+      <input type="password" id="sk" autocomplete="off" spellcheck="false"></label>
+    <div class="row">
+      <button class="btn btn-primary" id="btnCheck">Check keys</button>
+      <button class="btn btn-secondary" id="btnShow" type="button">Show secret</button>
+    </div>
+    <div id="s1"></div>
+  </section>
+
+  <!-- 2 -->
+  <section class="card is-locked" id="p2" hidden>
+    <div class="step-head"><span class="step-dot">2</span><h2>Key slots</h2></div>
+    <p class="lede">AWS allows two access keys per user. Rotation uses the spare slot, so if both are full you
+      must retire one before creating a replacement.</p>
+    <div class="slots" id="slots"></div>
+    <div class="row">
+      <button class="btn btn-primary" id="btnCreate">Create new key</button>
+      <button class="btn btn-secondary" id="btnRefresh" type="button">Refresh</button>
+    </div>
+    <div id="s2"></div>
+  </section>
+
+  <!-- 3 -->
+  <section class="card is-locked" id="p3" hidden>
+    <div class="step-head"><span class="step-dot">3</span><h2>Save the new credentials</h2></div>
+    <p class="lede" id="p3lede">AWS returns the secret once and never again. Save it into your upload configuration or
+      secret store before you go on.</p>
+    <div class="readout" id="newCreds"></div>
+    <p class="warnstrip" id="p3warn">This secret disappears when you close this tab</p>
+    <div class="row">
+      <button class="btn btn-secondary" id="btnCopy" type="button">Copy secret</button>
+      <button class="btn btn-secondary" id="btnDownload" type="button">Download .csv</button>
+    </div>
+    <label class="confirm">
+      <input type="checkbox" id="saved">
+      <span id="savedLabel">I have saved the new access key ID and secret, and updated the system that uploads Diamond 2 files.</span>
+    </label>
+    <div class="row"><button class="btn btn-primary" id="btnToVerify" disabled>Continue</button></div>
+  </section>
+
+  <!-- 4 -->
+  <section class="card is-locked" id="p4" hidden>
+    <div class="step-head"><span class="step-dot">4</span><h2>Verify the new key</h2></div>
+    <p class="lede">New keys take a few seconds to become usable across AWS. This calls AWS with the new
+      credentials until they answer.</p>
+    <div class="row"><button class="btn btn-primary" id="btnVerify">Verify new key</button></div>
+    <div id="s4"></div>
+  </section>
+
+  <!-- 5 -->
+  <section class="card is-locked" id="p5" hidden>
+    <div class="step-head"><span class="step-dot">5</span><h2>Retire the old key</h2></div>
+    <p class="lede" id="p5lede">Deactivate first. If an upload fails you can switch the old key back on. Delete only once
+      you have seen a successful upload on the new key.</p>
+    <div class="readout" id="oldCred"></div>
+    <div class="row">
+      <button class="btn btn-primary" id="btnDeactivate">Deactivate old key</button>
+      <button class="btn btn-secondary" id="btnReactivate" hidden>Reactivate old key</button>
+      <button class="btn btn-danger" id="btnDelete" disabled>Delete old key</button>
+    </div>
+    <div id="s5"></div>
+  </section>
+
+  <details class="notes">
+    <summary>What this page does, and does not, do</summary>
+    <div class="inner">
+      <p>Every request goes directly from your browser to <code>https://iam.amazonaws.com</code>, signed with AWS
+        Signature Version 4 using the Web Crypto API. There is no back end, no analytics, no external script,
+        stylesheet or font. The Content Security Policy on this page permits network access to the AWS IAM
+        endpoint and nowhere else, so you can verify that claim in your browser's network tab.</p>
+      <p>When this page is opened from the Diamond 2 uploader's own site, it reads the access key saved in the
+        uploader's settings (this browser's local storage) so you do not have to re-enter it, and after the
+        replacement key is verified it saves the new key back to the same place, so the uploader switches to the
+        new key automatically. It reads and writes only the access key ID and secret — nothing else — and only
+        in this browser.</p>
+      <p>Run from a saved copy of this file, or from anywhere other than the uploader's site, it stores nothing
+        at all: credentials are held in page memory only and closing the tab discards everything.</p>
+      <p>The page calls four IAM actions: <code>ListAccessKeys</code>, <code>CreateAccessKey</code>,
+        <code>UpdateAccessKey</code> and <code>DeleteAccessKey</code>. It never reads or writes anything in
+        your upload bucket.</p>
+      <p>You can save this file and run it from your own machine or intranet rather than loading it from us.
+        It has no dependencies and works from a <code>file://</code> URL.</p>
+    </div>
+  </details>
+
+</main>
+<footer>Creative Diversity Network · Diamond 2 · single file, no dependencies</footer>
+
+<script>
+(function(){
+"use strict";
+
+var ENDPOINT="https://iam.amazonaws.com/",REGION="us-east-1",SERVICE="iam",VERSION="2010-05-08";
+var CT="application/x-www-form-urlencoded; charset=utf-8";
+var enc=new TextEncoder();
+
+// localStorage keys shared with the uploader app (src/stores.js). Bucket and
+// region are deliberately not touched — rotation changes only the key pair.
+var LS_AK="tep_aws_access_key_id", LS_SK="tep_aws_secret_access_key";
+
+var state={ak:"",sk:"",user:"",keys:[],newKey:null,oldKeyId:"",oldSk:"",skewMs:0,clockChecked:false,
+           storedKeyLoaded:false,writtenBack:false};
+
+/* ---------- helpers ---------- */
+var $=function(id){return document.getElementById(id);};
+function hex(buf){var a=new Uint8Array(buf),s="";for(var i=0;i<a.length;i++)s+=a[i].toString(16).padStart(2,"0");return s;}
+async function sha256(str){return hex(await crypto.subtle.digest("SHA-256",enc.encode(str)));}
+async function hmac(key,str){
+  var k=await crypto.subtle.importKey("raw",key,{name:"HMAC",hash:"SHA-256"},false,["sign"]);
+  return new Uint8Array(await crypto.subtle.sign("HMAC",k,enc.encode(str)));
+}
+function amzStamp(d){
+  return d.getUTCFullYear()+
+    String(d.getUTCMonth()+1).padStart(2,"0")+
+    String(d.getUTCDate()).padStart(2,"0")+"T"+
+    String(d.getUTCHours()).padStart(2,"0")+
+    String(d.getUTCMinutes()).padStart(2,"0")+
+    String(d.getUTCSeconds()).padStart(2,"0")+"Z";
+}
+function say(el,msg,kind,code){
+  var d=document.createElement("div");
+  d.className="status"+(kind?" "+kind:"");
+  d.textContent=msg;
+  if(code){var c=document.createElement("span");c.className="code";c.textContent=code;d.appendChild(c);}
+  el.innerHTML="";el.appendChild(d);
+}
+function clear(el){el.innerHTML="";}
+function setLamp(panel,cls){
+  panel.classList.remove("is-active","is-done","is-alert");
+  if(cls)panel.classList.add(cls);
+}
+function unlock(panel){panel.hidden=false;panel.classList.remove("is-locked");setLamp(panel,"is-active");}
+
+/* ---------- uploader localStorage integration ----------
+   All access is wrapped in try/catch: localStorage throws on file:// in some
+   browsers and in private windows. In every failure mode the page simply
+   behaves as the standalone tool: manual entry, no persistence. */
+function readStoredKey(){
+  try{
+    var ak=localStorage.getItem(LS_AK)||"", sk=localStorage.getItem(LS_SK)||"";
+    return (ak&&sk)?{ak:ak,sk:sk}:null;
+  }catch(e){return null;}
+}
+function writeStoredKey(ak,sk){
+  try{localStorage.setItem(LS_AK,ak);localStorage.setItem(LS_SK,sk);return true;}
+  catch(e){return false;}
+}
+
+/* ---------- clock sync ---------- */
+async function syncClock(){
+  var res=await fetch(ENDPOINT,{method:"POST",headers:{"Content-Type":CT},
+    body:"Action=ListAccessKeys&Version="+VERSION});
+  var hdr=res.headers.get("Date");
+  if(hdr){
+    var server=new Date(hdr).getTime();
+    state.skewMs=server-Date.now();
+    state.clockChecked=true;
+    var off=Math.round(state.skewMs/1000);
+    $("clockStamp").textContent=Math.abs(off)<30
+      ? "clock in sync with AWS"
+      : "clock offset corrected: "+(off>0?"+":"")+off+"s";
+  }
+}
+
+/* ---------- signed call ---------- */
+async function call(params,creds){
+  var ak=creds?creds.ak:state.ak, sk=creds?creds.sk:state.sk;
+  var body=new URLSearchParams(Object.assign({Version:VERSION},params)).toString();
+  var now=new Date(Date.now()+state.skewMs);
+  var amzDate=amzStamp(now), dateOnly=amzDate.slice(0,8);
+  var payloadHash=await sha256(body);
+
+  var canonical=["POST","/","",
+    "content-type:"+CT,"host:iam.amazonaws.com","x-amz-date:"+amzDate,"",
+    "content-type;host;x-amz-date",payloadHash].join("\n");
+
+  var scope=dateOnly+"/"+REGION+"/"+SERVICE+"/aws4_request";
+  var toSign=["AWS4-HMAC-SHA256",amzDate,scope,await sha256(canonical)].join("\n");
+
+  var k=await hmac(enc.encode("AWS4"+sk),dateOnly);
+  k=await hmac(k,REGION); k=await hmac(k,SERVICE); k=await hmac(k,"aws4_request");
+  var sig=hex(await hmac(k,toSign));
+
+  var auth="AWS4-HMAC-SHA256 Credential="+ak+"/"+scope+
+           ", SignedHeaders=content-type;host;x-amz-date, Signature="+sig;
+
+  var res;
+  try{
+    res=await fetch(ENDPOINT,{method:"POST",
+      headers:{"Content-Type":CT,"X-Amz-Date":amzDate,"Authorization":auth},body:body});
+  }catch(e){
+    throw {code:"NetworkError",
+      message:"Could not reach AWS. Check your connection, and any proxy or firewall that inspects TLS."};
+  }
+  var text=await res.text();
+  var doc=new DOMParser().parseFromString(text,"text/xml");
+  if(!res.ok){
+    var codeEl=doc.getElementsByTagName("Code")[0];
+    var msgEl=doc.getElementsByTagName("Message")[0];
+    throw {code:codeEl?codeEl.textContent:("HTTP "+res.status),
+           message:msgEl?msgEl.textContent:"AWS rejected the request."};
+  }
+  return doc;
+}
+
+function friendly(err){
+  var c=err.code||"";
+  if(c==="InvalidClientTokenId")return "AWS does not recognise that access key ID. Check for a typo or a stray space.";
+  if(c==="SignatureDoesNotMatch")return "The secret access key does not match that key ID. Paste the secret again, taking care not to include trailing spaces.";
+  if(c==="AccessDenied")return "That key is not permitted to manage its own access keys. Contact TEP to have the permission added.";
+  if(c==="LimitExceeded")return "This user already has two access keys. Retire one before creating another.";
+  if(c==="NoSuchEntity")return "That key no longer exists. Refresh to see the current slots.";
+  if(c==="RequestTimeTooSkewed")return "Your computer's clock is too far from AWS time. Correct the system clock and try again.";
+  return err.message||"AWS rejected the request.";
+}
+
+/* ---------- slots ---------- */
+function ageDays(iso){return Math.floor((Date.now()-new Date(iso).getTime())/86400000);}
+
+function renderSlots(){
+  var wrap=$("slots");wrap.innerHTML="";
+  for(var i=0;i<2;i++){
+    var k=state.keys[i];
+    var el=document.createElement("div");
+    el.className="slot"+(k?"":" empty");
+    if(!k){
+      el.innerHTML='<div class="cap"><span>Slot '+(i+1)+'</span><span class="pip"></span></div>'+
+                   '<div class="vacant">Available</div>';
+    }else{
+      var days=ageDays(k.created);
+      var isCurrent=k.id===state.ak;
+      var isNew=state.newKey&&k.id===state.newKey.id;
+      var pip=k.status==="Active"?(days>330?"pip old":"pip on"):"pip off";
+      var tag=isNew?"New":(isCurrent?"In use here":"Slot "+(i+1));
+      el.innerHTML=
+        '<div class="cap"><span>'+tag+'</span><span class="'+pip+'"></span></div>'+
+        '<div class="kid">'+k.id+'</div>'+
+        '<dl><dt>Status</dt><dd>'+k.status+'</dd>'+
+        '<dt>Age</dt><dd'+(days>330?' class="age-warn"':'')+'>'+days+' days</dd>'+
+        '<dt>Created</dt><dd>'+new Date(k.created).toISOString().slice(0,10)+'</dd></dl>';
+    }
+    wrap.appendChild(el);
+  }
+  $("btnCreate").disabled=state.keys.length>=2;
+}
+
+async function listKeys(creds){
+  var doc=await call({Action:"ListAccessKeys"},creds);
+  var members=doc.getElementsByTagName("member");
+  var out=[];
+  for(var i=0;i<members.length;i++){
+    var m=members[i];
+    var g=function(t){var e=m.getElementsByTagName(t)[0];return e?e.textContent:"";};
+    out.push({id:g("AccessKeyId"),status:g("Status"),created:g("CreateDate"),user:g("UserName")});
+  }
+  return out;
+}
+
+/* ---------- stored key pickup ---------- */
+(function(){
+  var stored=readStoredKey();
+  if(!stored)return;
+  $("ak").value=stored.ak;
+  $("sk").value=stored.sk;
+  state.storedKeyLoaded=true;
+  var n=document.createElement("div");
+  n.className="stored-note";
+  n.textContent="The access key saved in this browser's uploader settings has been filled in below. "+
+    "After rotation, the uploader will be updated to use the new key automatically.";
+  $("storedNote").appendChild(n);
+})();
+
+/* ---------- step 1 ---------- */
+$("btnShow").addEventListener("click",function(){
+  var f=$("sk");
+  var showing=f.type==="text";
+  f.type=showing?"password":"text";
+  this.textContent=showing?"Show secret":"Hide secret";
+});
+
+$("btnCheck").addEventListener("click",async function(){
+  var btn=this;
+  state.ak=$("ak").value.trim();
+  state.sk=$("sk").value.trim();
+  if(!state.ak||!state.sk){say($("s1"),"Enter both the access key ID and the secret access key.","err");return;}
+  btn.disabled=true;btn.textContent="Checking…";
+  try{
+    if(!state.clockChecked){try{await syncClock();}catch(e){}}
+    state.keys=await listKeys();
+    state.user=state.keys.length?state.keys[0].user:"";
+    setLamp($("p1"),"is-done");
+    say($("s1"),"Signed in as IAM user "+(state.user||"(unknown)")+".","ok");
+    unlock($("p2"));
+    renderSlots();
+    var cur=state.keys.filter(function(k){return k.id===state.ak;})[0];
+    if(cur&&ageDays(cur.created)>330){
+      say($("s2"),"This key is "+ageDays(cur.created)+" days old and is due for rotation.","err");
+    }else{clear($("s2"));}
+    $("p2").scrollIntoView({behavior:"smooth",block:"nearest"});
+  }catch(err){
+    setLamp($("p1"),"is-alert");
+    say($("s1"),friendly(err),"err",err.code||"");
+  }finally{btn.disabled=false;btn.textContent="Check keys";}
+});
+
+/* ---------- step 2 ---------- */
+$("btnRefresh").addEventListener("click",async function(){
+  try{state.keys=await listKeys();renderSlots();clear($("s2"));}
+  catch(err){say($("s2"),friendly(err),"err",err.code||"");}
+});
+
+$("btnCreate").addEventListener("click",async function(){
+  var btn=this;btn.disabled=true;btn.textContent="Creating…";
+  try{
+    var doc=await call({Action:"CreateAccessKey"});
+    var g=function(t){var e=doc.getElementsByTagName(t)[0];return e?e.textContent:"";};
+    state.newKey={id:g("AccessKeyId"),secret:g("SecretAccessKey")};
+    state.oldKeyId=state.ak;
+    state.oldSk=state.sk; // kept so reactivation can restore the uploader's settings
+    state.keys=await listKeys();
+    renderSlots();
+    setLamp($("p2"),"is-done");
+    $("newCreds").innerHTML=
+      '<div class="line"><span class="k">Access key ID</span><span class="v">'+state.newKey.id+'</span></div>'+
+      '<div class="line"><span class="k">Secret access key</span><span class="v">'+state.newKey.secret+'</span></div>'+
+      '<div class="line"><span class="k">Region</span><span class="v">eu-west-2</span></div>';
+    // When the old key came from the uploader's settings, the page will save
+    // the new key back there after verification — soften step 3 accordingly,
+    // but still encourage an independent copy in case this browser's storage
+    // is ever cleared.
+    if(state.storedKeyLoaded&&state.oldKeyId===readStoredKeyIdSafe()){
+      $("p3lede").textContent="AWS returns the secret once and never again. The uploader in this browser "+
+        "will be updated automatically after verification, but if any other system uses this key, or you "+
+        "may need it on another machine, save a copy now.";
+      $("savedLabel").textContent="I have saved a copy of the new key, or this uploader is the only thing that uses it.";
+    }
+    unlock($("p3"));
+    $("p3").scrollIntoView({behavior:"smooth",block:"nearest"});
+  }catch(err){
+    setLamp($("p2"),"is-alert");
+    say($("s2"),friendly(err),"err",err.code||"");
+    btn.textContent="Create new key";btn.disabled=false;return;
+  }
+  btn.textContent="Create new key";
+});
+
+function readStoredKeyIdSafe(){
+  try{return localStorage.getItem(LS_AK)||"";}catch(e){return "";}
+}
+
+/* ---------- step 3 ---------- */
+$("btnCopy").addEventListener("click",async function(){
+  try{await navigator.clipboard.writeText(state.newKey.secret);this.textContent="Copied";
+      var b=this;setTimeout(function(){b.textContent="Copy secret";},1800);}
+  catch(e){this.textContent="Copy blocked — select it manually";}
+});
+
+$("btnDownload").addEventListener("click",function(){
+  var csv="Access key ID,Secret access key\n"+state.newKey.id+","+state.newKey.secret+"\n";
+  var url=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
+  var a=document.createElement("a");
+  a.href=url;a.download="diamond2-access-key-"+state.newKey.id+".csv";a.click();
+  setTimeout(function(){URL.revokeObjectURL(url);},1000);
+});
+
+$("saved").addEventListener("change",function(){$("btnToVerify").disabled=!this.checked;});
+
+$("btnToVerify").addEventListener("click",function(){
+  setLamp($("p3"),"is-done");
+  unlock($("p4"));
+  $("p4").scrollIntoView({behavior:"smooth",block:"nearest"});
+});
+
+/* ---------- step 4 ---------- */
+$("btnVerify").addEventListener("click",async function(){
+  var btn=this;btn.disabled=true;
+  var attempts=0,max=10;
+  while(attempts<max){
+    attempts++;
+    btn.textContent="Verifying ("+attempts+"/"+max+")…";
+    try{
+      await listKeys({ak:state.newKey.id,sk:state.newKey.secret});
+      setLamp($("p4"),"is-done");
+      // Write the new key back to the uploader's settings NOW — after it is
+      // proven to work, before the old key is touched. If this tab dies at any
+      // later point, the uploader is already on a working key.
+      if(state.storedKeyLoaded&&state.oldKeyId===readStoredKeyIdSafe()){
+        state.writtenBack=writeStoredKey(state.newKey.id,state.newKey.secret);
+      }
+      if(state.writtenBack){
+        say($("s4"),"The new key works, and the uploader in this browser has been updated to use it.","ok");
+        $("p5lede").textContent="Deactivate first. Then open the uploader in another tab and run a test "+
+          "upload — it is already using the new key. Delete only once you have seen that upload succeed. "+
+          "If it fails, reactivate the old key here and re-enter it in the uploader's settings.";
+      }else{
+        say($("s4"),"The new key works. AWS accepted a signed request with it.","ok");
+      }
+      $("oldCred").innerHTML=
+        '<div class="line"><span class="k">Key to retire</span><span class="v">'+state.oldKeyId+'</span></div>';
+      unlock($("p5"));
+      btn.textContent="Verified";
+      $("p5").scrollIntoView({behavior:"smooth",block:"nearest"});
+      return;
+    }catch(err){
+      if(attempts>=max){
+        setLamp($("p4"),"is-alert");
+        say($("s4"),"The new key is still not being accepted after "+max+" attempts. Wait a minute and try again. Do not delete the old key.","err",err.code||"");
+        btn.textContent="Verify new key";btn.disabled=false;return;
+      }
+      await new Promise(function(r){setTimeout(r,1500);});
+    }
+  }
+});
+
+/* ---------- step 5 ---------- */
+$("btnDeactivate").addEventListener("click",async function(){
+  var btn=this;btn.disabled=true;btn.textContent="Deactivating…";
+  try{
+    await call({Action:"UpdateAccessKey",AccessKeyId:state.oldKeyId,Status:"Inactive"},
+               {ak:state.newKey.id,sk:state.newKey.secret});
+    state.ak=state.newKey.id;state.sk=state.newKey.secret;
+    state.keys=await listKeys();renderSlots();
+    say($("s5"),state.writtenBack
+      ? "Old key deactivated. Open the uploader and run a test upload now — it is using the new key. If it fails, reactivate."
+      : "Old key deactivated. Run an upload now to confirm everything still works. If it fails, reactivate.","ok");
+    $("btnReactivate").hidden=false;
+    $("btnDelete").disabled=false;
+    btn.textContent="Deactivated";
+  }catch(err){
+    setLamp($("p5"),"is-alert");
+    say($("s5"),friendly(err),"err",err.code||"");
+    btn.textContent="Deactivate old key";btn.disabled=false;
+  }
+});
+
+$("btnReactivate").addEventListener("click",async function(){
+  try{
+    await call({Action:"UpdateAccessKey",AccessKeyId:state.oldKeyId,Status:"Active"});
+    state.keys=await listKeys();renderSlots();
+    var msg="Old key reactivated. Both keys now work, so nothing is broken. Investigate before trying again.";
+    if(state.writtenBack&&writeStoredKey(state.oldKeyId,state.oldSk)){
+      // Put the old key back in the uploader's settings too, so the app and
+      // AWS agree on which key is in service.
+      msg="Old key reactivated and restored in the uploader's settings. Both keys work, so nothing is broken. Investigate before trying again.";
+      state.writtenBack=false;
+    }
+    say($("s5"),msg,"ok");
+    $("btnDelete").disabled=true;
+    $("btnDeactivate").disabled=false;$("btnDeactivate").textContent="Deactivate old key";
+  }catch(err){say($("s5"),friendly(err),"err",err.code||"");}
+});
+
+$("btnDelete").addEventListener("click",async function(){
+  if(!confirm("Delete access key "+state.oldKeyId+" permanently?\n\nThis cannot be undone. Only continue if you have run a successful upload with the new key."))return;
+  var btn=this;btn.disabled=true;btn.textContent="Deleting…";
+  try{
+    await call({Action:"DeleteAccessKey",AccessKeyId:state.oldKeyId});
+    state.keys=await listKeys();
+    state.newKey&&renderSlots();
+    setLamp($("p5"),"is-done");
+    say($("s5"),state.writtenBack
+      ? "Rotation complete. One key remains, created today, and the uploader in this browser is using it. Close this tab when you are done."
+      : "Rotation complete. One key remains, created today. Close this tab when you are done.","ok");
+    $("btnReactivate").hidden=true;
+    btn.textContent="Deleted";
+  }catch(err){
+    say($("s5"),friendly(err),"err",err.code||"");
+    btn.textContent="Delete old key";btn.disabled=false;
+  }
+});
+
+/* ---------- hygiene ---------- */
+window.addEventListener("pagehide",function(){
+  state.ak="";state.sk="";state.oldSk="";state.newKey=null;
+  $("ak").value="";$("sk").value="";
+});
+
+})();
+</script>
+</body>
+</html>

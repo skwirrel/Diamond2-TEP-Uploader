@@ -145,6 +145,12 @@
       <button class="btn btn-danger btn-sm" onclick={clearCaches} disabled={cacheCleared}>
         {cacheCleared ? 'Cache cleared' : 'Clear local cache'}
       </button>
+
+      <!-- Deliberately low-key: rotation is a once-a-year technical task and
+           shouldn't invite casual clicks from non-technical users -->
+      <p class="rotate-link text-small">
+        <a href="key-rotation.html" target="_blank" rel="noopener">Rotate AWS access key…</a>
+      </p>
     </div>
 
     <div class="modal-footer">
@@ -173,5 +179,8 @@
   }
   .modal-divider {
     padding: 0 24px 16px;
+  }
+  .rotate-link {
+    margin-top: 12px;
   }
 </style>

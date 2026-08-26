@@ -45,6 +45,7 @@ State lives in **`src/stores.js`** (Svelte writable stores). Navigation is drive
 | `src/lib/errorPipeline.js` | Error review orchestrator: `loadErrorBatches()` (list + group by batch ID) and `loadErrorDetail()` (lazy JSON + XML download) |
 | `src/lib/learnedAliases.js` | Persist user-confirmed column→field mappings to localStorage (`tep_learned_aliases`); checked at distance 0 before Levenshtein |
 | `src/lib/debug.js` | `log()` utility — no-op unless `?debug=true` in URL |
+| `public/key-rotation.html` | Self-contained AWS access key rotation page (hand-rolled SigV4, IAM only). Deliberately **outside** the Svelte build so the deployed file is byte-identical and auditable — see `docs/keyRotationTool.md` for its hard constraints before touching it. Linked discreetly from Settings; shares the `tep_aws_access_key_id`/`tep_aws_secret_access_key` localStorage keys |
 
 ### COLUMN_CONFIG field shape
 
@@ -71,7 +72,7 @@ State lives in **`src/stores.js`** (Svelte writable stores). Navigation is drive
 
 | Key | Content |
 |---|---|
-| `tep_aws_*` | Credentials (4 keys) |
+| `tep_aws_*` | Credentials (4 keys). The key-ID and secret entries are also read/written by `public/key-rotation.html` |
 | `tep_upload_hash_cache` | JSON array, circular buffer of SHA-256 hashes |
 | `tep_learned_aliases` | JSON object `{ "columnHeader": "fieldName" }` |
 | `tep_error_cache` | JSON object `{ batches: { batchId: status }, errorDetails: { filename: summary } }` |

@@ -511,13 +511,35 @@ The batch ID enables grouping files by upload session in the Error Review sectio
 
 | Key | Purpose |
 |---|---|
-| `tep_aws_access_key_id` | AWS Access Key ID |
-| `tep_aws_secret_access_key` | AWS Secret Access Key |
+| `tep_aws_access_key_id` | AWS Access Key ID (also read/written by the key rotation page — see below) |
+| `tep_aws_secret_access_key` | AWS Secret Access Key (also read/written by the key rotation page — see below) |
 | `tep_aws_bucket_name` | S3 bucket name |
 | `tep_aws_region` | AWS region |
 | `tep_upload_hash_cache` | JSON array of up to 1,000 SHA-256 hashes (circular buffer) |
 | `tep_learned_aliases` | JSON object mapping column header strings to field names (e.g. `{"Pub ID": "Publication ID"}`); built up as users confirm non-exact column mappings |
 | `tep_error_cache` | JSON object tracking error review state (batch statuses and cached error details); see Error Review below |
+
+---
+
+## Access Key Rotation Page
+
+`public/key-rotation.html` is a self-contained page (no framework, no build step, no
+dependencies) that lets a broadcaster rotate their long-lived IAM access key by calling
+the AWS IAM API directly from the browser with hand-rolled SigV4 signing. It is served
+from the uploader's own origin (Vite copies `public/` files into `dist/` verbatim) and is
+linked, deliberately low-key, from the Settings modal.
+
+Because it shares the uploader's origin, it prefills the key saved in the uploader's
+settings and, once the replacement key has been verified against IAM, writes the new key
+back to localStorage **before** the old key is deactivated or deleted — so the uploader
+switches keys automatically and can never be left holding a dead key. Run from a saved
+copy (`file://`) or any other origin, it finds no localStorage and behaves as a fully
+standalone tool with no persistence, which also serves broadcasters who do not use
+Integration-Lite.
+
+It is intentionally **not** part of the Svelte build so the deployed file stays
+byte-identical to the audited source. Full design rationale, CORS verification notes and
+hard constraints are in `keyRotationTool.md` — read that before modifying the page.
 
 ---
 
