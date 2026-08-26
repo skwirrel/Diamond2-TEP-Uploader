@@ -12,7 +12,7 @@
   // the step components based on that value.
 
   import { get } from 'svelte/store';
-  import { currentSection, currentStep, showSettings, hasUnviewedErrors, credentials, STEPS } from './stores.js';
+  import { currentSection, currentStep, showSettings, hasUnviewedErrors, credentials, workbook, STEPS } from './stores.js';
   import { makeS3Client } from './lib/s3.js';
   import { loadErrorBatches } from './lib/errorPipeline.js';
   import { initCredentialHandoff } from './lib/credentialHandoff.js';
@@ -33,6 +33,18 @@
   // Listen for credentials handed over by a trusted caller page (popup/iframe
   // launch) and announce readiness to it — see lib/credentialHandoff.js
   initCredentialHandoff();
+
+  // Clicking the Upload tab normally just switches back to the wizard section.
+  // But when the wizard is already showing the results page, users click it
+  // expecting to start a new upload — so reset to file selection. Safe only on
+  // the results step: earlier steps hold in-progress work that must not be lost.
+  function gotoWizard() {
+    if (get(currentSection) === 'wizard' && get(currentStep) === STEPS.RESULTS) {
+      workbook.set(null); // signals FileSelection to show a fresh state
+      currentStep.set(STEPS.FILE_SELECTION);
+    }
+    currentSection.set('wizard');
+  }
 
   // Background check for unviewed errors — fire and forget, doesn't block rendering
   (async () => {
@@ -59,11 +71,13 @@
   <div class="nav-tabs">
     <button class="nav-tab"
             class:active={$currentSection === 'wizard'}
-            onclick={() => currentSection.set('wizard')}>
+            aria-current={$currentSection === 'wizard' ? 'page' : undefined}
+            onclick={gotoWizard}>
       Upload
     </button>
     <button class="nav-tab"
             class:active={$currentSection === 'errorReview'}
+            aria-current={$currentSection === 'errorReview' ? 'page' : undefined}
             onclick={() => currentSection.set('errorReview')}>
       Error Review
       {#if $hasUnviewedErrors}

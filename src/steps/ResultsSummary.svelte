@@ -102,8 +102,10 @@
         Retry ({r.remaining} remaining)
       </button>
     {/if}
-    <button class="btn btn-secondary" onclick={startOver}>
-      ← Upload another file
+    <!-- Primary when it's the only action; secondary when Retry (the more
+         important action after an interrupted upload) is also present -->
+    <button class="btn {r.remaining > 0 ? 'btn-secondary' : 'btn-primary'}" onclick={startOver}>
+      Upload another file
     </button>
   </div>
 </div>
