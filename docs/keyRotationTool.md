@@ -114,6 +114,14 @@ to the signed request set, test the preflight for it first.
   times at 1.5s intervals and on failure explicitly tells the user not to delete the old
   key.
 - **Two-key limit** rendered as two literal slots; creation disabled when both are full.
+- **Retire controls on the other slot.** When both slots are full and no key has been created
+  in this session, the slot the user is *not* signed in with carries deactivate / reactivate /
+  delete buttons, with a hint that reads the key's status and age (inactive → just delete;
+  newer than the signed-in key → probably an abandoned rotation; older → may belong to another
+  system, so check before retiring). This is how a user recovers after closing the tab midway
+  through a rotation. Delete is only enabled once the key is inactive, matching step 5. The
+  signed-in key's slot never gets these controls, so the user cannot lock themselves out. This
+  path never touches localStorage.
 - **Age warning at 330 days** — a month's notice before the 12-month contractual limit.
 - **Error translation.** AWS error codes map to actionable guidance. Keep new errors in
   this style: say what went wrong and what to do about it, never apologise, never be vague.

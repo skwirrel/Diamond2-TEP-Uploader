@@ -537,6 +537,10 @@ copy (`file://`) or any other origin, it finds no localStorage and behaves as a 
 standalone tool with no persistence, which also serves broadcasters who do not use
 Integration-Lite.
 
+If a rotation is abandoned midway and the user returns to find both key slots full, the
+slot they are *not* signed in with carries deactivate / reactivate / delete controls so
+they can free it and start again; the signed-in key's slot never does.
+
 It is intentionally **not** part of the Svelte build so the deployed file stays
 byte-identical to the audited source. Full design rationale, CORS verification notes and
 hard constraints are in `keyRotationTool.md` — read that before modifying the page.
