@@ -140,6 +140,7 @@ button:focus-visible,summary:focus-visible{outline:2px solid var(--primary);outl
 .btn-secondary:hover:not(:disabled){background:var(--bg)}
 .btn-danger{background:var(--error-light);color:var(--error);border-color:#fecaca}
 .btn-danger:hover:not(:disabled){background:#fee2e2}
+.btn-sm{padding:5px 12px;font-size:.8125rem}
 
 /* ---- key slots ---- */
 .slots{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0 4px}
@@ -163,6 +164,8 @@ button:focus-visible,summary:focus-visible{outline:2px solid var(--primary);outl
 .slot dt{font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text-muted);align-self:center;font-size:.6875rem}
 .slot dd{font-family:var(--mono)}
 .slot .vacant{color:var(--text-subtle);font-size:.8125rem;font-style:italic}
+.slot .hint{color:var(--text-muted);font-size:.75rem;margin-top:10px}
+.slot .row{margin-top:10px;gap:8px}
 .age-warn{color:var(--error);font-weight:700}
 
 /* ---- credential readout ---- */
@@ -463,7 +466,7 @@ function friendly(err){
   if(c==="InvalidClientTokenId")return "AWS does not recognise that access key ID. Check for a typo or a stray space.";
   if(c==="SignatureDoesNotMatch")return "The secret access key does not match that key ID. Paste the secret again, taking care not to include trailing spaces.";
   if(c==="AccessDenied")return "That key is not permitted to manage its own access keys. Contact TEP to have the permission added.";
-  if(c==="LimitExceeded")return "This user already has two access keys. Retire one before creating another.";
+  if(c==="LimitExceeded")return "This user already has two access keys. Retire the one you are not signed in with, using the controls on its slot, before creating another.";
   if(c==="NoSuchEntity")return "That key no longer exists. Refresh to see the current slots.";
   if(c==="RequestTimeTooSkewed")return "Your computer's clock is too far from AWS time. Correct the system clock and try again.";
   return err.message||"AWS rejected the request.";
@@ -493,10 +496,47 @@ function renderSlots(){
         '<dl><dt>Status</dt><dd>'+k.status+'</dd>'+
         '<dt>Age</dt><dd'+(days>330?' class="age-warn"':'')+'>'+days+' days</dd>'+
         '<dt>Created</dt><dd>'+new Date(k.created).toISOString().slice(0,10)+'</dd></dl>';
+      // Both slots full and no rotation in progress: the user is stuck unless
+      // they can retire the key they are NOT signed in with (an abandoned
+      // rotation, a superseded key, or one made elsewhere). Offer the same
+      // deactivate → delete sequence step 5 uses, on that slot only. The
+      // signed-in key's slot never gets these, so nobody locks themselves out.
+      // Once a key has been created in this session, step 5 owns retirement.
+      if(state.keys.length>=2&&!state.newKey&&!isCurrent){
+        el.appendChild(retireControls(k));
+      }
     }
     wrap.appendChild(el);
   }
   $("btnCreate").disabled=state.keys.length>=2;
+}
+
+function retireControls(k){
+  var cur=state.keys.filter(function(x){return x.id===state.ak;})[0];
+  var active=k.status==="Active";
+  var hint;
+  if(!active){
+    hint="Already deactivated. If nothing has broken since, delete it to free this slot.";
+  }else if(cur&&new Date(k.created).getTime()>new Date(cur.created).getTime()){
+    hint="Created after the key you are signed in with, so it may be from a rotation that was not "+
+         "finished. If you did not save its secret it cannot be used: deactivate it, then delete it.";
+  }else{
+    hint="If another system still uses this key, leave it alone. Otherwise deactivate it, check "+
+         "that uploads still work, then delete it to free this slot.";
+  }
+  var frag=document.createDocumentFragment();
+  var p=document.createElement("p");p.className="hint";p.textContent=hint;frag.appendChild(p);
+  var row=document.createElement("div");row.className="row";
+  var toggle=document.createElement("button");
+  toggle.type="button";toggle.className="btn btn-secondary btn-sm";
+  toggle.dataset.action=active?"deactivate":"reactivate";toggle.dataset.key=k.id;
+  toggle.textContent=active?"Deactivate":"Reactivate";
+  var del=document.createElement("button");
+  del.type="button";del.className="btn btn-danger btn-sm";
+  del.dataset.action="delete";del.dataset.key=k.id;
+  del.textContent="Delete";del.disabled=active; // deactivate first, always
+  row.appendChild(toggle);row.appendChild(del);frag.appendChild(row);
+  return frag;
 }
 
 async function listKeys(creds){
@@ -548,9 +588,13 @@ $("btnCheck").addEventListener("click",async function(){
     unlock($("p2"));
     renderSlots();
     var cur=state.keys.filter(function(k){return k.id===state.ak;})[0];
-    if(cur&&ageDays(cur.created)>330){
-      say($("s2"),"This key is "+ageDays(cur.created)+" days old and is due for rotation.","err");
-    }else{clear($("s2"));}
+    var old=cur&&ageDays(cur.created)>330;
+    var full=state.keys.length>=2;
+    var parts=[];
+    if(old)parts.push("This key is "+ageDays(cur.created)+" days old and is due for rotation.");
+    if(full)parts.push("Both slots are in use. Retire the key you are not signed in with, using the controls on its slot, before creating a replacement.");
+    if(parts.length){say($("s2"),parts.join(" "),old?"err":"");}
+    else{clear($("s2"));}
     $("p2").scrollIntoView({behavior:"smooth",block:"nearest"});
   }catch(err){
     setLamp($("p1"),"is-alert");
@@ -562,6 +606,39 @@ $("btnCheck").addEventListener("click",async function(){
 $("btnRefresh").addEventListener("click",async function(){
   try{state.keys=await listKeys();renderSlots();clear($("s2"));}
   catch(err){say($("s2"),friendly(err),"err",err.code||"");}
+});
+
+// Retire controls on the non-current slot (see retireControls). renderSlots
+// rewrites the slot markup, so one delegated listener handles all of them.
+// Every call here is signed with the key the user is signed in with.
+$("slots").addEventListener("click",async function(ev){
+  var btn=ev.target.closest("button[data-action]");
+  if(!btn||!$("slots").contains(btn))return;
+  var action=btn.dataset.action, id=btn.dataset.key;
+  if(!id||id===state.ak)return; // never act on the signed-in key from here
+  if(action==="delete"&&
+     !confirm("Delete access key "+id+" permanently?\n\nThis cannot be undone. Only continue if nothing still relies on this key."))return;
+  var label=btn.textContent;
+  btn.disabled=true;
+  btn.textContent={deactivate:"Deactivating…",reactivate:"Reactivating…",delete:"Deleting…"}[action]||label;
+  try{
+    if(action==="deactivate")     await call({Action:"UpdateAccessKey",AccessKeyId:id,Status:"Inactive"});
+    else if(action==="reactivate")await call({Action:"UpdateAccessKey",AccessKeyId:id,Status:"Active"});
+    else if(action==="delete")    await call({Action:"DeleteAccessKey",AccessKeyId:id});
+    else return;
+    state.keys=await listKeys();renderSlots();
+    setLamp($("p2"),"is-active");
+    if(action==="deactivate")
+      say($("s2"),"Key "+id+" deactivated. If an upload elsewhere fails, reactivate it. Otherwise delete it to free the slot.","ok");
+    else if(action==="reactivate")
+      say($("s2"),"Key "+id+" reactivated. Both keys work again.","ok");
+    else
+      say($("s2"),"Key "+id+" deleted. The slot is free — create the replacement key now.","ok");
+  }catch(err){
+    setLamp($("p2"),"is-alert");
+    say($("s2"),friendly(err),"err",err.code||"");
+    btn.disabled=false;btn.textContent=label;
+  }
 });
 
 $("btnCreate").addEventListener("click",async function(){
