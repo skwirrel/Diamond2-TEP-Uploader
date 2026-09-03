@@ -11,7 +11,7 @@
   // clicking the backdrop outside the modal box.
 
   import { credentials, credentialsOrigin, setCredentials, showSettings } from '../stores.js';
-  import { runConnectionTest } from '../lib/connectionTest.js';
+  import { runConnectionTest, formatDebugReport, copyToClipboard } from '../lib/connectionTest.js';
 
   // Local copy — edits here don't hit the store until save() is called.
   // When credentials were supplied via postMessage the fields are hidden and
@@ -36,14 +36,27 @@
   let testing    = $state(false);
   let testResult = $state(null); // { ok, severity, title, detail, warnings } or null
 
+  let copied = $state(false);
+
+  function testCreds() {
+    return $credentialsOrigin ? $credentials : local;
+  }
+
   async function testConnection() {
     testing    = true;
     testResult = null;
+    copied     = false;
     try {
-      testResult = await runConnectionTest($credentialsOrigin ? $credentials : local);
+      testResult = await runConnectionTest(testCreds());
     } finally {
       testing = false;
     }
+  }
+
+  // Put a support-friendly report on the clipboard (never the secret key).
+  async function copyDetails() {
+    copied = await copyToClipboard(formatDebugReport(testResult, testCreds()));
+    if (copied) setTimeout(() => { copied = false; }, 2500);
   }
 
   let cacheCleared = $state(false);
@@ -169,8 +182,13 @@
           {#each testResult.warnings ?? [] as w}
             <div class="test-detail"><strong>{w.title}.</strong> {w.detail}</div>
           {/each}
-          {#if testResult.raw}
-            <div class="test-raw text-muted">Technical detail: {testResult.raw}</div>
+          {#if testResult.severity !== 'ok'}
+            <div class="test-copy">
+              <button class="btn btn-secondary btn-sm" onclick={copyDetails}>
+                {copied ? 'Copied ✓' : 'Copy technical details'}
+              </button>
+              <span class="text-muted text-small">Paste these into your message to support.</span>
+            </div>
           {/if}
         </div>
       {/if}
@@ -239,10 +257,10 @@
     margin-top: 6px;
     line-height: 1.5;
   }
-  .test-raw {
-    margin-top: 8px;
-    font-size: 0.8em;
-    font-family: monospace;
-    word-break: break-word;
+  .test-copy {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
   }
 </style>

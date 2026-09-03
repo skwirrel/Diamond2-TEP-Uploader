@@ -24,7 +24,7 @@
     credentials, uploadResults,
     currentStep, STEPS, showSettings,
   } from '../stores.js';
-  import { runConnectionTest, describeUploadError } from '../lib/connectionTest.js';
+  import { runConnectionTest, describeUploadError, formatDebugReport, copyToClipboard } from '../lib/connectionTest.js';
   import { generateXML, previewXML } from '../lib/xml.js';
   import { hashXML, isInLocalCache, addToLocalCache } from '../lib/dedupe.js';
   import { makeS3Client, isRemoteDuplicate, uploadXML, makeS3Key, generateBatchId } from '../lib/s3.js';
@@ -42,8 +42,18 @@
   let progress  = $state(0);    // 0–1 fraction of rows processed
   let uploaded  = $state(0);    // count of rows successfully uploaded
   let dupes     = $state(0);    // count of rows skipped as duplicates
-  let failedRow = $state(null); // { rowIndex, resolvedFields, error, rawError } — first failure
+  let failedRow = $state(null); // { rowIndex, resolvedFields, error } — first failure
   let preflight = $state(null); // connection-test result when the pre-flight fails
+  let failedWhy = $state(null); // classified result for a mid-upload failure
+  let copied    = $state(false);
+
+  // Copy a support report for whichever failure is on screen.
+  async function copyDetails() {
+    const result = preflight ?? failedWhy;
+    const extra  = failedRow ? { 'Failed row:': failedRow.rowIndex, 'Batch ID:': batchId } : {};
+    copied = await copyToClipboard(formatDebugReport(result, get(credentials), extra));
+    if (copied) setTimeout(() => { copied = false; }, 2500);
+  }
   let remaining = $state(0);    // rows not processed after a failure
   let xmlStrings = $state([]);  // accumulated XML strings for debug preview
 
@@ -66,6 +76,8 @@
     dupes     = 0;
     failedRow = null;
     preflight = null;
+    failedWhy = null;
+    copied    = false;
 
     const creds  = get(credentials);
 
@@ -124,10 +136,10 @@
         // Translate the error into the same friendly wording the connection
         // test uses; keep the raw text for support.
         const why = describeUploadError(e);
+        failedWhy = why;
         failedRow = {
           rowIndex, resolvedFields,
-          error:    `${why.title}. ${why.detail}`,
-          rawError: why.raw,
+          error: `${why.title}. ${why.detail}`,
         };
         remaining = total - i - 1; // rows we didn't get to
         status    = 'error';
@@ -229,9 +241,12 @@
     <div class="alert alert-error preflight-alert" role="alert">
       <strong>{preflight.title}</strong>
       <div class="preflight-detail">{preflight.detail}</div>
-      {#if preflight.raw}
-        <div class="preflight-raw text-muted">Technical detail: {preflight.raw}</div>
-      {/if}
+      <div class="copy-row">
+        <button class="btn btn-secondary btn-sm" onclick={copyDetails}>
+          {copied ? 'Copied ✓' : 'Copy technical details'}
+        </button>
+        <span class="text-small">Paste these into your message to support.</span>
+      </div>
     </div>
     <p class="text-muted text-small">No rows were uploaded.</p>
     <div class="btn-row">
@@ -263,9 +278,12 @@
           </tbody>
         </table>
         <p class="text-error mt-8 text-small">{failedRow?.error}</p>
-        {#if failedRow?.rawError}
-          <p class="text-muted text-small preflight-raw">Technical detail: {failedRow.rawError}</p>
-        {/if}
+        <div class="copy-row">
+          <button class="btn btn-secondary btn-sm" onclick={copyDetails}>
+            {copied ? 'Copied ✓' : 'Copy technical details'}
+          </button>
+          <span class="text-muted text-small">Paste these into your message to support.</span>
+        </div>
       </div>
     </details>
   {/if}
@@ -281,11 +299,11 @@
     margin-top: 6px;
     line-height: 1.5;
   }
-  .preflight-raw {
-    margin-top: 8px;
-    font-size: 0.8em;
-    font-family: monospace;
-    word-break: break-word;
+  .copy-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
   }
   .upload-stats {
     display: flex;

@@ -445,6 +445,59 @@ export async function runConnectionTest(creds) {
 }
 
 // ---------------------------------------------------------------------------
+// Support report. The raw SDK/browser error is deliberately NOT shown on
+// screen (it only confuses non-technical users); instead the UI offers a
+// "Copy technical details" button that puts this report on the clipboard so
+// it can be pasted into an email to support. Secrets are never included —
+// only the last four characters of the key ID, for identification.
+// ---------------------------------------------------------------------------
+export function formatDebugReport(result, creds = {}, extra = {}) {
+  const keyId = creds.accessKeyId || '';
+  const lines = [
+    'TEP Data Uploader — technical details',
+    `Time:        ${new Date().toISOString()}`,
+    `Page:        ${window.location.href}`,
+    `Browser:     ${navigator.userAgent}`,
+    `Bucket:      ${creds.bucketName || '(not set)'}`,
+    `Region:      ${creds.region || '(not set)'}`,
+    `Key ID ends: ${keyId ? '…' + keyId.slice(-4) : '(not set)'}`,
+    ...Object.entries(extra).map(([k, v]) => `${k.padEnd(12)} ${v}`),
+    `Outcome:     ${result.code} (${result.severity})`,
+    `Title:       ${result.title}`,
+    `Detail:      ${result.detail}`,
+    `Raw error:   ${result.raw || '(none)'}`,
+  ];
+  for (const w of result.warnings ?? []) {
+    lines.push(`Warning:     ${w.code} — ${w.raw || w.title}`);
+  }
+  return lines.join('\n');
+}
+
+// Copy text to the clipboard; resolves true on success. Falls back to a
+// hidden textarea + execCommand for contexts where the async API is blocked.
+export async function copyToClipboard(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.opacity  = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      return ok;
+    } catch {
+      return false;
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // For the upload loop: turn an error thrown by uploadXML() into the same
 // friendly vocabulary. The pre-flight has already passed by the time this is
 // called, so a fetch failure here is worded as a dropped connection.
