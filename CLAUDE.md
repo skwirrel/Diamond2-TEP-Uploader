@@ -41,6 +41,7 @@ State lives in **`src/stores.js`** (Svelte writable stores). Navigation is drive
 | `src/lib/xml.js` | DOM-based XML generation using XPath-like notation from `COLUMN_CONFIG.xpath` |
 | `src/lib/dedupe.js` | SHA-256 via `crypto.subtle`; localStorage circular buffer (1000 hashes, key `tep_upload_hash_cache`) |
 | `src/lib/s3.js` | AWS SDK v3 S3 operations: remote dedup check, PutObject upload, batch ID generation, filename parsing, paginated listing, object download |
+| `src/lib/connectionTest.js` | Probe ladder (settings → network → signed list → conditional put) that classifies S3 failures into specific user messages; `runConnectionTest()` is used by the Settings "Test connection" button and as the upload pre-flight, `describeUploadError()` maps mid-upload errors. The write probe uses `IfMatch` with an impossible ETag so nothing is ever written to `incoming/` |
 | `src/lib/errorCache.js` | localStorage cache (`tep_error_cache`) for error review: batch status (new/viewed/dismissed) and cached error detail summaries |
 | `src/lib/errorPipeline.js` | Error review orchestrator: `loadErrorBatches()` (list + group by batch ID) and `loadErrorDetail()` (lazy JSON + XML download) |
 | `src/lib/learnedAliases.js` | Persist user-confirmed column→field mappings to localStorage (`tep_learned_aliases`); checked at distance 0 before Levenshtein |

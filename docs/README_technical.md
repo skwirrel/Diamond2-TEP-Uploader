@@ -37,6 +37,7 @@ src/
 │   ├── validation.js           ← field-level and record-level validation
 │   ├── dedupe.js               ← SHA-256 hashing and local hash cache
 │   ├── s3.js                   ← all S3 operations + filename parsing
+│   ├── connectionTest.js       ← probe ladder + error classification (see Connection Test below)
 │   ├── errorCache.js           ← localStorage cache for error review state
 │   ├── errorPipeline.js        ← S3 listing, batch grouping, error detail fetching
 │   ├── learnedAliases.js       ← persist user-confirmed column→field mappings
@@ -206,14 +207,16 @@ A SHA-256 hash is computed from the serialised XML string using `crypto.subtle.d
 
 ### Step 11: Upload to S3
 
-The upload phase runs row by row, displaying a **progress bar** to the user. The progress bar tracks rows completed (checked + uploaded or skipped) against total valid rows.
+Before the first row is touched, the upload step runs the **connection test** (see [Connection Test](#connection-test)). If it fails, nothing is uploaded and the specific failure is shown with "Open Settings" and "Try again" buttons.
+
+The upload phase then runs row by row, displaying a **progress bar** to the user. The progress bar tracks rows completed (checked + uploaded or skipped) against total valid rows.
 
 For each non-duplicate row:
 
 1. **Generate the S3 key:** `incoming/{sha256_hash}-{batch_id}-{yyyymmdd}-{hhmmss}-{random_number}.xml`
 2. **Remote deduplication check:** `ListObjectsV2` with prefix to check `incoming/{sha256_hash}-`, `complete/{sha256_hash}-`, and `errors/{sha256_hash}-`. If a match is found, the row is skipped. The progress bar advances.
 3. **Upload:** `PutObject` with `Content-Type: application/xml`.
-4. **On failure:** Alert the user and halt. No further rows are uploaded.
+4. **On failure:** Alert the user and halt. No further rows are uploaded. The error is passed through `describeUploadError()` so the user sees the same friendly wording as the connection test (a fetch `TypeError` after a passed pre-flight is reported as a lost connection); the raw SDK error is shown beneath as "Technical detail".
 5. **On success:** Add the hash to the circular buffer. The progress bar advances.
 
 > **Note:** Duplicate uploads are handled gracefully by TEP, so the dedup checks are an optimisation to avoid unnecessary processing rather than a hard requirement.
@@ -506,6 +509,23 @@ The batch ID enables grouping files by upload session in the Error Review sectio
 ```
 
 ---
+
+## Connection Test
+
+`src/lib/connectionTest.js` exists because the browser's bare `Failed to fetch` tells the user nothing. When S3 rejects bad credentials it returns a proper 403 with a named error code (`InvalidAccessKeyId`, `SignatureDoesNotMatch`, …) that the bucket's CORS configuration lets the browser read. A fetch `TypeError` therefore never means "bad keys": it means the browser got no readable response at all — wrong bucket name, wrong region, no matching CORS rule, or a network block. The test separates these cases by running a ladder of probes, each only meaningful if the previous one passed:
+
+| Stage | Probe | What it distinguishes |
+|---|---|---|
+| 0 settings | Offline checks | Empty fields, stray whitespace, malformed key ID / secret / bucket name, `ASIA…` key with no session token, no region |
+| 1 network | Unauthenticated `no-cors` fetch to `https://s3.{region}.amazonaws.com/` | Throws only if the network or browser blocks AWS outright (proxy, firewall, ad blocker) |
+| 2 auth | Signed `ListObjectsV2` (`MaxKeys: 1`, prefix `incoming/`) | `TypeError` → bucket/region/CORS; `InvalidAccessKeyId` → key unknown/rotated/deactivated; `SignatureDoesNotMatch` → wrong secret; `RequestTimeTooSkewed` → clock; `AccessDenied` → keys valid but no list permission (**warning**, test continues) |
+| 3 write | Conditional `PutObject` with `IfMatch` set to an ETag that can never match | `AccessDenied` → keys valid but no write permission ("problem with the TEP bucket, contact support"); `NoSuchKey` / `PreconditionFailed` / 404 / 412 → write permission proven |
+
+Stage 3 is the subtle one. A real probe object under `incoming/` would be ingested by TEP as a broken file, and the app has no delete permission to clean up. IAM authorisation is evaluated before the `If-Match` precondition, so the conditional put yields a definitive answer without ever creating an object. (Caveat: if the bucket ever enforces SSE-KMS and the key lacks KMS rights, real uploads could still fail with `AccessDenied` after the probe passes.)
+
+Probes use a dedicated `S3Client` with `maxAttempts: 1` and a 15-second `AbortController` timeout so a failing test answers quickly. Results are `{ ok, code, severity, title, detail, raw, warnings }`; `raw` carries the underlying SDK/browser error text and is shown as "Technical detail" for support. Cases that cannot be told apart from the browser — wrong bucket name vs. wrong region vs. missing CORS, and deleted vs. deactivated keys — are grouped under a single message whose remedy is the same for each.
+
+The test runs from the **Test connection** button in Settings (against the unsaved form values, or the live store when credentials arrived via postMessage) and as a pre-flight at the top of `UploadProgress.startUpload()`.
 
 ## Local Storage Keys
 

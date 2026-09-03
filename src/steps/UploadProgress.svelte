@@ -22,8 +22,9 @@
   import {
     validRows, invalidRows,
     credentials, uploadResults,
-    currentStep, STEPS,
+    currentStep, STEPS, showSettings,
   } from '../stores.js';
+  import { runConnectionTest, describeUploadError } from '../lib/connectionTest.js';
   import { generateXML, previewXML } from '../lib/xml.js';
   import { hashXML, isInLocalCache, addToLocalCache } from '../lib/dedupe.js';
   import { makeS3Client, isRemoteDuplicate, uploadXML, makeS3Key, generateBatchId } from '../lib/s3.js';
@@ -33,14 +34,16 @@
   // Upload state machine:
   //   'idle'       — ready to start, waiting for user to click Upload
   //   'previewing' — debug mode only; showing XML preview before upload
+  //   'checking'   — pre-flight connection test in progress
   //   'running'    — upload loop in progress
   //   'done'       — all rows processed successfully
-  //   'error'      — upload failed; loop stopped
+  //   'error'      — pre-flight failed or upload failed; loop stopped
   let status    = $state('idle');
   let progress  = $state(0);    // 0–1 fraction of rows processed
   let uploaded  = $state(0);    // count of rows successfully uploaded
   let dupes     = $state(0);    // count of rows skipped as duplicates
-  let failedRow = $state(null); // { rowIndex, resolvedFields, error } — first failure
+  let failedRow = $state(null); // { rowIndex, resolvedFields, error, rawError } — first failure
+  let preflight = $state(null); // connection-test result when the pre-flight fails
   let remaining = $state(0);    // rows not processed after a failure
   let xmlStrings = $state([]);  // accumulated XML strings for debug preview
 
@@ -57,13 +60,26 @@
 
   // Main upload loop — called when the user clicks the Upload button.
   async function startUpload() {
-    status    = 'running';
+    status    = 'checking';
     progress  = 0;
     uploaded  = 0;
     dupes     = 0;
     failedRow = null;
+    preflight = null;
 
     const creds  = get(credentials);
+
+    // Pre-flight: prove the network, bucket, keys and write permission all
+    // work BEFORE touching row 1, so a bad setup is reported as a setup
+    // problem rather than as "upload failed on row 2".
+    const check = await runConnectionTest(creds);
+    if (!check.ok) {
+      preflight = check;
+      status    = 'error';
+      return;
+    }
+
+    status = 'running';
     const s3     = makeS3Client(creds); // reuse one client for all rows in this session
     const bucket = creds.bucketName;
 
@@ -104,8 +120,15 @@
         uploaded++;
         progress = (i + 1) / total;
       } catch (e) {
-        // Upload failure stops the loop — the user can retry from Results
-        failedRow = { rowIndex, resolvedFields, error: e.message };
+        // Upload failure stops the loop — the user can retry from Results.
+        // Translate the error into the same friendly wording the connection
+        // test uses; keep the raw text for support.
+        const why = describeUploadError(e);
+        failedRow = {
+          rowIndex, resolvedFields,
+          error:    `${why.title}. ${why.detail}`,
+          rawError: why.raw,
+        };
         remaining = total - i - 1; // rows we didn't get to
         status    = 'error';
         break;
@@ -149,6 +172,7 @@
   <div class="card-header">
     <h2>
       {#if status === 'previewing'}Reviewing XML Before Upload
+      {:else if status === 'checking'}Checking Connection…
       {:else if status === 'running'}Uploading…
       {:else if status === 'done'}Upload Complete
       {:else if status === 'error'}Upload Failed
@@ -182,6 +206,10 @@
       </button>
     </div>
 
+  <!-- Checking: pre-flight connection test before any row is touched -->
+  {:else if status === 'checking'}
+    <p class="text-muted">Verifying the connection to the TEP bucket before uploading…</p>
+
   <!-- Running: show live counters and a progress bar -->
   {:else if status === 'running'}
     <div class="upload-stats">
@@ -196,7 +224,22 @@
       {Math.round(progress * 100)}% — {uploaded + dupes} of {total} processed
     </div>
 
-  <!-- Error: show the failed record details -->
+  <!-- Error (pre-flight): nothing was uploaded; explain what to fix -->
+  {:else if status === 'error' && preflight}
+    <div class="alert alert-error" role="alert">
+      <strong>{preflight.title}</strong>
+      <div class="preflight-detail">{preflight.detail}</div>
+      {#if preflight.raw}
+        <div class="preflight-raw text-muted">Technical detail: {preflight.raw}</div>
+      {/if}
+    </div>
+    <p class="text-muted text-small">No rows were uploaded.</p>
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick={() => showSettings.set(true)}>Open Settings</button>
+      <button class="btn btn-primary" onclick={startUpload}>Try again</button>
+    </div>
+
+  <!-- Error (mid-upload): show the failed record details -->
   {:else if status === 'error'}
     <div class="alert alert-error" role="alert">
       Upload failed on row {failedRow?.rowIndex}.
@@ -219,13 +262,26 @@
             {/each}
           </tbody>
         </table>
-        <p class="text-error mt-8 text-small">Error: {failedRow?.error}</p>
+        <p class="text-error mt-8 text-small">{failedRow?.error}</p>
+        {#if failedRow?.rawError}
+          <p class="text-muted text-small preflight-raw">Technical detail: {failedRow.rawError}</p>
+        {/if}
       </div>
     </details>
   {/if}
 </div>
 
 <style>
+  .preflight-detail {
+    margin-top: 6px;
+    line-height: 1.5;
+  }
+  .preflight-raw {
+    margin-top: 8px;
+    font-size: 0.8em;
+    font-family: monospace;
+    word-break: break-word;
+  }
   .upload-stats {
     display: flex;
     gap: 16px;

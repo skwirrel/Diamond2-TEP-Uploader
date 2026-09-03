@@ -11,6 +11,7 @@
   // clicking the backdrop outside the modal box.
 
   import { credentials, credentialsOrigin, setCredentials, showSettings } from '../stores.js';
+  import { runConnectionTest } from '../lib/connectionTest.js';
 
   // Local copy — edits here don't hit the store until save() is called.
   // When credentials were supplied via postMessage the fields are hidden and
@@ -27,6 +28,22 @@
   function close() {
     showSettings.set(false);
     // local changes are simply discarded — the store is unchanged
+  }
+
+  // Connection test — runs the probe ladder in lib/connectionTest.js against
+  // the values currently in the form (or the live store when credentials came
+  // via postMessage and the form is hidden). Nothing is saved by testing.
+  let testing    = $state(false);
+  let testResult = $state(null); // { ok, severity, title, detail, warnings } or null
+
+  async function testConnection() {
+    testing    = true;
+    testResult = null;
+    try {
+      testResult = await runConnectionTest($credentialsOrigin ? $credentials : local);
+    } finally {
+      testing = false;
+    }
   }
 
   let cacheCleared = $state(false);
@@ -134,6 +151,29 @@
         </div>
       </div>
       {/if}
+
+      <!-- Connection test: tells the user exactly which part of the setup is
+           wrong (network, bucket/region, key ID, secret, permissions) rather
+           than letting them discover it on row 2 of an upload. -->
+      <div class="test-row">
+        <button class="btn btn-secondary btn-sm" onclick={testConnection} disabled={testing}>
+          {testing ? 'Testing…' : 'Test connection'}
+        </button>
+        <span class="text-muted text-small">Checks these details against the TEP bucket without uploading anything.</span>
+      </div>
+
+      {#if testResult}
+        <div class="alert test-result {testResult.severity === 'ok' ? 'alert-success' : testResult.severity === 'warning' ? 'alert-warning' : 'alert-error'}" role="alert">
+          <strong>{testResult.title}</strong>
+          <div class="test-detail">{testResult.detail}</div>
+          {#each testResult.warnings ?? [] as w}
+            <div class="test-detail"><strong>{w.title}.</strong> {w.detail}</div>
+          {/each}
+          {#if testResult.raw}
+            <div class="test-raw text-muted">Technical detail: {testResult.raw}</div>
+          {/if}
+        </div>
+      {/if}
     </div>
 
     <div class="modal-divider">
@@ -182,5 +222,24 @@
   }
   .rotate-link {
     margin-top: 12px;
+  }
+  .test-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 4px;
+  }
+  .test-result {
+    margin-top: 12px;
+  }
+  .test-detail {
+    margin-top: 6px;
+    line-height: 1.5;
+  }
+  .test-raw {
+    margin-top: 8px;
+    font-size: 0.8em;
+    font-family: monospace;
+    word-break: break-word;
   }
 </style>
