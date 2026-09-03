@@ -226,7 +226,7 @@
 
   <!-- Error (pre-flight): nothing was uploaded; explain what to fix -->
   {:else if status === 'error' && preflight}
-    <div class="alert alert-error" role="alert">
+    <div class="alert alert-error preflight-alert" role="alert">
       <strong>{preflight.title}</strong>
       <div class="preflight-detail">{preflight.detail}</div>
       {#if preflight.raw}
@@ -272,6 +272,11 @@
 </div>
 
 <style>
+  /* .alert is display:flex (row) for icon+text layouts; stack ours vertically */
+  .preflight-alert {
+    flex-direction: column;
+    gap: 0;
+  }
   .preflight-detail {
     margin-top: 6px;
     line-height: 1.5;

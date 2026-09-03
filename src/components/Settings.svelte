@@ -229,7 +229,10 @@
     gap: 12px;
     margin-top: 4px;
   }
+  /* .alert is display:flex (row) for icon+text layouts; stack ours vertically */
   .test-result {
+    flex-direction: column;
+    gap: 0;
     margin-top: 12px;
   }
   .test-detail {
