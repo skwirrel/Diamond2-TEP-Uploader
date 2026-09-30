@@ -107,6 +107,18 @@ a:hover { text-decoration: underline; }
   align-self: stretch; /* tabs span the full nav height so the indicator sits on the bar's bottom edge */
 }
 
+/* Narrow screens: the brand line is wide, so drop the tabs onto their own
+   row beneath it instead of squashing them */
+@media (max-width: 760px) {
+  .nav { height: auto; min-height: var(--nav-height); flex-wrap: wrap; padding: 10px 16px 0; }
+  .nav-brand { flex-basis: 100%; }
+  .nav-tabs { height: 42px; }
+  .nav-settings { align-self: center; }
+}
+@media (max-width: 480px) {
+  .nav-brand { white-space: normal; line-height: 1.25; font-size: .9375rem; }
+}
+
 .nav-tab {
   display: inline-flex;
   align-items: center;
