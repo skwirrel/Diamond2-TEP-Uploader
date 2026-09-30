@@ -199,7 +199,7 @@ Click on any batch that has errors to see the details. The app will download the
 
 Click the arrow on any error row to expand it and see all errors, warnings, and processing metrics.
 
-#screenshot("images/15-error-detail.jpg", caption: [Batch detail — the failed file expanded, with its publication ID and download buttons])
+#screenshot("images/15-error-detail.jpg", caption: [Batch detail — the failed file expanded, showing TEP's error report and the download buttons])
 
 == Downloading files
 

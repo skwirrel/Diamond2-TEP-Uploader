@@ -186,7 +186,7 @@ Click on any batch that has errors to see the details. The app will download the
 
 Click the arrow on any error row to expand it and see all errors, warnings, and processing metrics.
 
-![Batch detail — the failed file expanded, with its publication ID and download buttons](images/15-error-detail.jpg){width=100%}
+![Batch detail — the failed file expanded, showing TEP's error report and the download buttons](images/15-error-detail.jpg){width=100%}
 
 ### Downloading Files
 
