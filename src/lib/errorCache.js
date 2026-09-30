@@ -1,12 +1,12 @@
 // Error cache — localStorage-backed store for tracking which error batches
 // the user has seen or dismissed, plus cached error details so we don't
-// re-download JSON reports on every visit.
+// re-download TEP's XML error reports on every visit.
 //
 // Storage key: "tep_error_cache"
 // Shape:
 //   {
 //     batches:      { [batchId]: "new" | "viewed" | "dismissed" },
-//     errorDetails: { [filename]: { stage, errorCount, warningCount,
+//     errorDetails: { [filename]: { stage, summary, errorCount,
 //                                   maxSeverity, topError, publicationId,
 //                                   cachedAt } }
 //   }

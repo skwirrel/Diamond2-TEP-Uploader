@@ -488,8 +488,10 @@ The `xpath` property uses a notation loosely based on XPath but is **not** stand
 ```
 {bucket}/
 ├── incoming/       ← newly uploaded XML files land here
-├── complete/       ← TEP moves files here after successful processing
-└── errors/         ← TEP places error files here on ingestion failure
+├── complete/       ← TEP writes <base>.status.xml receipts here after
+│                     successful processing (the uploaded file is deleted)
+└── errors/         ← TEP moves failed files here, plus a <base>.errors.xml
+                      error report for each
 ```
 
 ### File Naming Convention
@@ -584,7 +586,7 @@ The feature is split across three layers:
 ### Data flow
 
 1. **List** — `loadErrorBatches()` calls `listAllObjects()` for both `errors/` and `complete/` prefixes in parallel
-2. **Parse** — each S3 key is stripped of its prefix and run through `parseFilename()` which validates it against `TEP_FILENAME_REGEX` and extracts the batch ID
+2. **Parse** — each S3 key is stripped of its prefix and run through `parseFilename()` which validates it against `TEP_FILENAME_REGEX` and extracts the batch ID. Under `complete/` the objects are `<base>.status.xml` receipts (TEP deletes the uploaded file on success), so the `.status` infix is stripped before parsing; the moved originals from before protocol v1.4 are still accepted until retention clears them. Under `errors/` the `<base>.errors.xml` report companions are excluded from the file list
 3. **Filter** — files not matching the naming convention (i.e. not created by this tool) are discarded, as are files older than 30 days
 4. **Reconcile** — the local cache is pruned of entries for files that no longer exist remotely
 5. **Group** — files are grouped by batch ID into batch summary objects
@@ -596,37 +598,37 @@ The feature is split across three layers:
 Error details are not fetched during the initial listing. When the user clicks into a batch, `loadErrorDetail()` is called for each error file:
 
 1. Check `getCachedError(filename)` — return immediately if cached
-2. Download `errors/{filename}.json` and `errors/{filename}` (the XML) in parallel via `Promise.allSettled`
-3. Parse the JSON to extract: `stage`, error/warning counts, max severity, top error message
-4. Parse the XML with `DOMParser` to extract `publicationId` from the `<Publication>` element
-5. Cache the summary in localStorage (excluding the full JSON report to save space)
+2. Download `errors/<base>.errors.xml` (TEP's error report) and `errors/{filename}` (the uploaded XML) in parallel via `Promise.allSettled`
+3. Parse the error report with `DOMParser` to extract: `stage`, `summary`, the flat error list, max severity, top error message
+4. Parse the uploaded XML with `DOMParser` to extract `publicationId` from the `<Publication>` element
+5. Cache the summary in localStorage (excluding the full report to save space)
 6. Return the detail object to the component for display
 
 Per-file failures are non-fatal — partial data is returned with `null` for missing fields.
 
-### Error JSON structure
+### Error report structure
 
-TEP produces a companion `.json` file for each errored XML file, with the same name plus a `.json` suffix (e.g. `errors/hash-batch-date-time-random.xml.json`):
+TEP writes an XML error report beside each rejected file: `<base>.errors.xml`, where `<base>` is the uploaded filename minus `.xml`. It is an `<errorReport>` document in the `urn:tep:pdx:report:1.0` namespace, defined by `tep-pdx-report-v1.xsd` — both are published in the [CDN-Diamond-XML repo](https://github.com/CreativeDiversityNetwork/CDN-Diamond-XML) and specified in §6.1 of its S3 Exchange Protocol doc. Shape:
 
-```json
-{
-  "processingId": "xml-ingestion-bmt-137b9eeb-...",
-  "originalFile": "hash-batch-date-time-random.xml",
-  "funderSlug": "bmt",
-  "timestamp": "2026-05-20T14:45:00.469Z",
-  "error": "top-level error summary",
-  "stage": "VALIDATING",
-  "errors": [
-    { "code": "UNSUPPORTED_XML_NAMESPACE", "message": "...", "severity": "critical", "timestamp": "..." }
-  ],
-  "warnings": [],
-  "metrics": {
-    "recordsProcessed": 0, "recordsCreated": 0, "recordsUpdated": 0,
-    "recordsSkipped": 0, "recordsFailed": 1, "recordsDeleted": 0,
-    "parseTime": 1, "validationTime": 1
-  }
-}
+```xml
+<errorReport xmlns="urn:tep:pdx:report:1.0" schemaVersion="1.0"
+             file="hash-batch-date-time-random.xml"
+             processedAt="2026-09-14T10:00:00.000Z"
+             stage="VALIDATING" summary="XSD validation failed">
+  <file>
+    <error code="UNSUPPORTED_SCHEMA_VERSION" message="..." severity="error"/>
+  </file>
+  <programmes>
+    <programme id="SENDER-PROG-001">
+      <error code="OFCOM_GENRE_CODE_UNKNOWN" message="..." severity="error" field="genre" line="42"/>
+    </programme>
+  </programmes>
+</errorReport>
 ```
+
+`<file>` holds document-level faults, `<programmes>/<programme>` per-record faults. `severity` is `error` (fix the data and resubmit) or `critical` (TEP-side failure, resubmit unchanged); warnings never appear on an error report. The error `code` list is closed and exact-match — branch on codes, never on `stage` or `message`. `loadErrorDetail()` flattens all `<error>` elements into one list, tagging each with the enclosing programme's `id` (`recordId`, null for file-level faults).
+
+On success TEP writes `complete/<base>.status.xml` (root `<statusReport>`, same namespace) and deletes the uploaded file — `complete/` holds only receipts. The app counts these receipts for the batch "OK" totals but does not parse their contents.
 
 ### Local cache structure (`tep_error_cache`)
 
@@ -638,9 +640,9 @@ TEP produces a companion `.json` file for each errored XML file, with the same n
   "errorDetails": {
     "hash-batch-date-time-random.xml": {
       "stage": "VALIDATING",
+      "summary": "XSD validation failed",
       "errorCount": 1,
-      "warningCount": 0,
-      "maxSeverity": "critical",
+      "maxSeverity": "error",
       "topError": "...",
       "publicationId": "PUB-001",
       "cachedAt": "2026-05-20T15:00:00Z"
@@ -649,7 +651,7 @@ TEP produces a companion `.json` file for each errored XML file, with the same n
 }
 ```
 
-Cache entries older than 30 days are pruned automatically. Entries for files no longer present in S3 are removed during reconciliation. Batch status is set to `"dismissed"` locally when the user clicks "Dismiss batch" — since the app does not have delete permissions on the `errors/` prefix, a bucket lifecycle policy removes the remote files after 14 days.
+Cache entries older than 30 days are pruned automatically. Entries for files no longer present in S3 are removed during reconciliation. Batch status is set to `"dismissed"` locally when the user clicks "Dismiss batch" — since the app does not have delete permissions on the `errors/` prefix, TEP removes the remote files 7 days after creation (protocol §5.1).
 
 ### Component architecture
 

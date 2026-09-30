@@ -3,9 +3,9 @@
   //
   // Follows the same <details>-based collapsible pattern as ValidationReport's
   // invalid rows. Summary shows the filename and key stats; expanded body
-  // shows the full error list, warnings, metrics, and download buttons.
+  // shows the faults from TEP's XML error report and download buttons.
 
-  let { file, detail, loading, error, ondownloadxml, ondownloadjson } = $props();
+  let { file, detail, loading, error, ondownloadxml, ondownloadreport } = $props();
 
   function severityBadge(sev) {
     if (sev === 'critical' || sev === 'error') return 'badge-error';
@@ -53,12 +53,14 @@
       {#if detail.fullReport?.errors?.length > 0}
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Code</th><th>Message</th><th>Severity</th></tr></thead>
+            <thead><tr><th>Code</th><th>Message</th><th>Field</th><th>Line</th><th>Severity</th></tr></thead>
             <tbody>
               {#each detail.fullReport.errors as err}
                 <tr>
                   <td class="mono">{err.code ?? ''}</td>
                   <td>{err.message ?? ''}</td>
+                  <td class="mono">{err.field ?? ''}</td>
+                  <td class="mono">{err.line ?? ''}</td>
                   <td><span class="badge {severityBadge(err.severity)}">{err.severity}</span></td>
                 </tr>
               {/each}
@@ -66,38 +68,13 @@
           </table>
         </div>
       {/if}
-
-      {#if detail.fullReport?.warnings?.length > 0}
-        <h4 class="mt-8">Warnings</h4>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>Code</th><th>Message</th></tr></thead>
-            <tbody>
-              {#each detail.fullReport.warnings as warn}
-                <tr>
-                  <td class="mono">{warn.code ?? ''}</td>
-                  <td>{warn.message ?? ''}</td>
-                </tr>
-              {/each}
-            </tbody>
-          </table>
-        </div>
-      {/if}
-
-      {#if detail.fullReport?.metrics}
-        <p class="text-muted text-small mt-8">
-          Records: {detail.fullReport.metrics.recordsProcessed ?? 0} processed,
-          {detail.fullReport.metrics.recordsCreated ?? 0} created,
-          {detail.fullReport.metrics.recordsFailed ?? 0} failed
-        </p>
-      {/if}
     {:else if !loading}
       <p class="text-muted text-small">No details available yet.</p>
     {/if}
 
     <div class="btn-row" style="margin-top:12px">
       <button class="btn btn-secondary btn-sm" onclick={ondownloadxml}>Download XML</button>
-      <button class="btn btn-secondary btn-sm" onclick={ondownloadjson}>Download JSON</button>
+      <button class="btn btn-secondary btn-sm" onclick={ondownloadreport}>Download error report</button>
     </div>
   </div>
 </details>

@@ -39,11 +39,13 @@ export async function loadErrorBatches(s3, bucketName) {
 
   const cutoff = Date.now() - THIRTY_DAYS_MS;
 
-  // Parse error files — only .xml, skip .xml.json companion files
+  // Parse error files — the uploaded .xml only; TEP writes a companion
+  // <base>.errors.xml report beside each one, which is fetched lazily by
+  // loadErrorDetail() and must not be counted as a failed file itself.
   const errorFiles = [];
   for (const obj of errorObjects) {
     const name = obj.Key.replace(/^errors\//, '');
-    if (!name.endsWith('.xml') || name.endsWith('.xml.error.json')) continue;
+    if (!name.endsWith('.xml') || name.endsWith('.errors.xml')) continue;
     const parsed = parseFilename(name);
     if (!parsed) continue;
     if (obj.LastModified && obj.LastModified.getTime() < cutoff) continue;
@@ -55,17 +57,24 @@ export async function loadErrorBatches(s3, bucketName) {
     });
   }
 
-  // Parse complete files
+  // Parse complete files. Per the S3 exchange protocol, complete/ holds one
+  // <base>.status.xml receipt per successfully processed file — the uploaded
+  // file itself is deleted, not moved. Objects from before protocol v1.4 may
+  // still be the moved originals, so accept both forms until retention
+  // clears them.
   const completeFiles = [];
   for (const obj of completeObjects) {
     const name = obj.Key.replace(/^complete\//, '');
     if (!name.endsWith('.xml')) continue;
-    const parsed = parseFilename(name);
+    const dataName = name.endsWith('.status.xml')
+      ? name.slice(0, -'.status.xml'.length) + '.xml'
+      : name;
+    const parsed = parseFilename(dataName);
     if (!parsed) continue;
     if (obj.LastModified && obj.LastModified.getTime() < cutoff) continue;
     completeFiles.push({
       ...parsed,
-      filename:     name,
+      filename:     dataName,
       key:          obj.Key,
       lastModified: obj.LastModified,
     });
@@ -126,13 +135,21 @@ export async function loadErrorBatches(s3, bucketName) {
 // ---------------------------------------------------------------------------
 // Load error details for a single file.
 //
-// Downloads the .json error report and the .xml file in parallel, extracts
-// key fields, caches the result, and returns the detail object.
+// Downloads TEP's <base>.errors.xml error report and the uploaded .xml file
+// in parallel, extracts key fields, caches the result, and returns the
+// detail object.
+//
+// The error report is an XML document in the urn:tep:pdx:report:1.0
+// namespace (root <errorReport>), defined by TEP's tep-pdx-report-v1.xsd —
+// see docs/Diamond2_S3_XML_Exchange_Protocol.md §6.1 in the CDN-Diamond-XML
+// repo. Faults sit under <file> (document-level) and <programmes>/<programme>
+// (per-record), each as an <error code message severity field? line?/>.
+// Warnings never appear on an error report.
 //
 // Returns cached data immediately if available. Failures are non-fatal —
 // partial data is returned with null for missing fields.
 //
-// Returns: { stage, errorCount, warningCount, maxSeverity, topError,
+// Returns: { stage, summary, errorCount, maxSeverity, topError,
 //            publicationId, cachedAt, fullReport }
 //
 // Note: fullReport is kept in memory for the current session but NOT
@@ -146,36 +163,59 @@ export async function loadErrorDetail(s3, bucketName, filename) {
     return cached;
   }
 
-  const jsonKey = `errors/${filename}.error.json`;
-  const xmlKey  = `errors/${filename}`;
+  const base      = filename.replace(/\.xml$/, '');
+  const reportKey = `errors/${base}.errors.xml`;
+  const xmlKey    = `errors/${filename}`;
 
   // Download both in parallel — either may fail independently
-  const [jsonResult, xmlResult] = await Promise.allSettled([
-    downloadObject(s3, bucketName, jsonKey),
+  const [reportResult, xmlResult] = await Promise.allSettled([
+    downloadObject(s3, bucketName, reportKey),
     downloadObject(s3, bucketName, xmlKey),
   ]);
 
-  // Parse JSON error report
+  // Parse the XML error report
   let fullReport    = null;
   let stage         = null;
+  let summary       = null;
   let errorCount    = 0;
-  let warningCount  = 0;
   let maxSeverity   = null;
   let topError      = null;
 
-  if (jsonResult.status === 'fulfilled') {
+  if (reportResult.status === 'fulfilled') {
     try {
-      fullReport   = JSON.parse(jsonResult.value);
-      stage        = fullReport.stage || null;
-      errorCount   = (fullReport.errors || []).length;
-      warningCount = (fullReport.warnings || []).length;
-      maxSeverity  = deriveMaxSeverity(fullReport.errors || []);
-      topError     = fullReport.errors?.[0]?.message || fullReport.error || null;
+      const doc  = new DOMParser().parseFromString(reportResult.value, 'application/xml');
+      const root = doc.getElementsByTagNameNS('*', 'errorReport')[0];
+      if (!root) throw new Error('no <errorReport> root element');
+
+      stage   = root.getAttribute('stage')   || null;
+      summary = root.getAttribute('summary') || null;
+
+      const errors = [];
+      for (const el of root.getElementsByTagNameNS('*', 'error')) {
+        const parent = el.parentElement;
+        errors.push({
+          code:     el.getAttribute('code'),
+          message:  el.getAttribute('message'),
+          severity: el.getAttribute('severity'),
+          field:    el.getAttribute('field'),
+          line:     el.getAttribute('line'),
+          // The Sender's record id from the enclosing <programme>, or null
+          // for document-level faults under <file>
+          recordId: parent && parent.localName === 'programme'
+            ? parent.getAttribute('id')
+            : null,
+        });
+      }
+
+      fullReport  = { stage, summary, errors };
+      errorCount  = errors.length;
+      maxSeverity = deriveMaxSeverity(errors);
+      topError    = summary || errors[0]?.message || null;
     } catch (e) {
-      log('Failed to parse error JSON for', filename, e);
+      log('Failed to parse error report for', filename, e);
     }
   } else {
-    log('Failed to download error JSON for', filename, jsonResult.reason);
+    log('Failed to download error report for', filename, reportResult.reason);
   }
 
   // Parse XML to extract publicationId
@@ -196,8 +236,8 @@ export async function loadErrorDetail(s3, bucketName, filename) {
 
   const detail = {
     stage,
+    summary,
     errorCount,
-    warningCount,
     maxSeverity,
     topError,
     publicationId,
@@ -206,7 +246,7 @@ export async function loadErrorDetail(s3, bucketName, filename) {
   };
 
   // Persist summary to localStorage (exclude fullReport to save space).
-  // Only cache if we actually got a valid JSON report — don't cache failed lookups.
+  // Only cache if we actually got a valid report — don't cache failed lookups.
   if (fullReport) {
     const { fullReport: _, ...summary } = detail;
     setCachedError(filename, summary);
@@ -216,9 +256,10 @@ export async function loadErrorDetail(s3, bucketName, filename) {
 }
 
 // Derive the highest severity from an array of error objects.
+// The report schema allows only "error" (bad data, fix and resubmit) and
+// "critical" (TEP-side processing failure, resubmit unchanged).
 function deriveMaxSeverity(errors) {
   if (errors.some(e => e.severity === 'critical')) return 'critical';
   if (errors.some(e => e.severity === 'error'))    return 'error';
-  if (errors.some(e => e.severity === 'warning'))  return 'warning';
   return 'info';
 }

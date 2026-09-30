@@ -1,10 +1,12 @@
 <script>
   // Batch detail view — shows all error files in a single batch with lazy-loaded
-  // error details, plus download buttons for XML and JSON files.
+  // error details, plus download buttons for the uploaded XML and TEP's XML
+  // error report.
   //
   // On mount, marks the batch as "viewed" and begins fetching error details for
-  // all error files. Details are loaded one at a time from S3 (JSON + XML per
-  // file), cached in localStorage, and the display updates as each one arrives.
+  // all error files. Details are loaded one at a time from S3 (error report +
+  // uploaded XML per file), cached in localStorage, and the display updates as
+  // each one arrives.
 
   import { get } from 'svelte/store';
   import { credentials } from '../stores.js';
@@ -100,7 +102,7 @@
           loading={!!loadingFiles[file.filename]}
           error={fileErrors[file.filename] ?? ''}
           ondownloadxml={() => downloadFile(file.key)}
-          ondownloadjson={() => downloadFile(`errors/${file.filename}.error.json`)}
+          ondownloadreport={() => downloadFile(`errors/${file.filename.replace(/\.xml$/, '')}.errors.xml`)}
         />
       {/each}
     </div>

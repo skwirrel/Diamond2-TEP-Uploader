@@ -2,8 +2,10 @@
 //
 // Bucket folder layout (managed by TEP, not this app):
 //   incoming/  ← this app writes here
-//   complete/  ← TEP moves files here after successful ingestion
-//   errors/    ← TEP places error reports here on ingestion failure
+//   complete/  ← TEP writes a <base>.status.xml receipt here after successful
+//                ingestion (the uploaded file itself is deleted, not moved)
+//   errors/    ← TEP moves failed files here, alongside a <base>.errors.xml
+//                error report
 //
 // File naming: incoming/{sha256_hash}-{batchId}-{yyyymmdd}-{hhmmss}-{random}.xml
 // The hash prefix is what makes remote deduplication possible — we can use a
@@ -165,7 +167,7 @@ export async function listAllObjects(s3, bucketName, prefix) {
 
 // ---------------------------------------------------------------------------
 // Download a single object from S3 and return its content as a string.
-// Used by the Error Review section to fetch .json error reports and .xml files.
+// Used by the Error Review section to fetch XML error reports and .xml files.
 // ---------------------------------------------------------------------------
 export async function downloadObject(s3, bucketName, key) {
   log('Downloading:', key);
