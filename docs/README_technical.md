@@ -586,7 +586,7 @@ The feature is split across three layers:
 ### Data flow
 
 1. **List** — `loadErrorBatches()` calls `listAllObjects()` for both `errors/` and `complete/` prefixes in parallel
-2. **Parse** — each S3 key is stripped of its prefix and run through `parseFilename()` which validates it against `TEP_FILENAME_REGEX` and extracts the batch ID. Under `complete/` the objects are `<base>.status.xml` receipts (TEP deletes the uploaded file on success), so the `.status` infix is stripped before parsing; the moved originals from before protocol v1.4 are still accepted until retention clears them. Under `errors/` the `<base>.errors.xml` report companions are excluded from the file list
+2. **Parse** — each S3 key is stripped of its prefix and run through `parseFilename()` which validates it against `TEP_FILENAME_REGEX` and extracts the batch ID. Under `complete/` the objects are `<base>.status.xml` receipts (TEP deletes the uploaded file on success), so the `.status` infix is stripped before parsing. Under `errors/` the `<base>.errors.xml` report companions are excluded from the file list
 3. **Filter** — files not matching the naming convention (i.e. not created by this tool) are discarded, as are files older than 30 days
 4. **Reconcile** — the local cache is pruned of entries for files that no longer exist remotely
 5. **Group** — files are grouped by batch ID into batch summary objects

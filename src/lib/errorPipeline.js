@@ -59,16 +59,12 @@ export async function loadErrorBatches(s3, bucketName) {
 
   // Parse complete files. Per the S3 exchange protocol, complete/ holds one
   // <base>.status.xml receipt per successfully processed file — the uploaded
-  // file itself is deleted, not moved. Objects from before protocol v1.4 may
-  // still be the moved originals, so accept both forms until retention
-  // clears them.
+  // file itself is deleted, not moved.
   const completeFiles = [];
   for (const obj of completeObjects) {
     const name = obj.Key.replace(/^complete\//, '');
-    if (!name.endsWith('.xml')) continue;
-    const dataName = name.endsWith('.status.xml')
-      ? name.slice(0, -'.status.xml'.length) + '.xml'
-      : name;
+    if (!name.endsWith('.status.xml')) continue;
+    const dataName = name.slice(0, -'.status.xml'.length) + '.xml';
     const parsed = parseFilename(dataName);
     if (!parsed) continue;
     if (obj.LastModified && obj.LastModified.getTime() < cutoff) continue;
