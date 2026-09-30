@@ -28,7 +28,7 @@
   import UploadProgress      from './steps/UploadProgress.svelte';
   import ResultsSummary      from './steps/ResultsSummary.svelte';
 
-  import cdnLogo from '/cdn-logo-white.png';
+  import cdnLogo from '/cdn-mark-white.svg';
 
   // Listen for credentials handed over by a trusted caller page (popup/iframe
   // launch) and announce readiness to it — see lib/credentialHandoff.js

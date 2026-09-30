@@ -62,7 +62,7 @@ not at build time, so repo and deployment stay byte-identical. To regenerate aft
 change:
 
 ```bash
-convert public/cdn-logo-white.png -resize x64 /tmp/logo64.png
+inkscape public/cdn-mark-white.svg -h 64 -o /tmp/logo64.png
 base64 -w0 /tmp/logo64.png   # paste into the data URI in the <img> tag
 ```
 

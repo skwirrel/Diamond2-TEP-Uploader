@@ -454,7 +454,7 @@ export async function runConnectionTest(creds) {
 export function formatDebugReport(result, creds = {}, extra = {}) {
   const keyId = creds.accessKeyId || '';
   const lines = [
-    'TEP Data Uploader — technical details',
+    'Integration Lite Post-TX Uploader — technical details',
     `Time:        ${new Date().toISOString()}`,
     `Page:        ${window.location.href}`,
     `Browser:     ${navigator.userAgent}`,

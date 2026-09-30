@@ -174,8 +174,8 @@ export function previewXML(xmlStrings) {
   const items = xmlStrings
     .map(
       (xml, i) =>
-        `<h3 style="margin:16px 0 4px;color:#555">Row ${i + 1}</h3>
-<pre style="background:#f4f4f4;padding:12px;border-radius:4px;overflow-x:auto;font-size:12px">${escapeHtml(xml)}</pre>`
+        `<h3 style="margin:16px 0 4px;color:#4A5175">Row ${i + 1}</h3>
+<pre style="background:#F2F2F2;padding:12px;border-radius:4px;overflow-x:auto;font-size:12px">${escapeHtml(xml)}</pre>`
     )
     .join('');
 

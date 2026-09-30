@@ -1,34 +1,42 @@
 /* ============================================================
    Design tokens
    ============================================================ */
+/* CDN brand palette (style guide, Aug 2026). Interactive/text shades are
+   darkened from the guide's accent hues to hold WCAG AA on light grounds;
+   the bright accents are reserved for the navy nav, matching the website. */
 :root {
-  --primary:        #0693e3;
-  --primary-hover:  #0570b5;
-  --primary-light:  #e8f4fd;
-  --success:        #16a34a;
-  --success-light:  #f0fdf4;
-  --error:          #dc2626;
-  --error-light:    #fef2f2;
-  --warning:        #d97706;
-  --warning-light:  #fffbeb;
-  --neutral:        #64748b;
+  --navy:           #121C51;  /* brand navy */
+  --accent:         #D476C4;  /* bright pink — only on navy backgrounds */
+  --accent-soft:    #EABAE1;  /* pink pill buttons, navy text on top */
+  --accent-soft-hover: #E2A6D7;
 
-  --bg:             #f1f5f9;
-  --surface:        #ffffff;
-  --border:         #e2e8f0;
-  --border-strong:  #cbd5e1;
+  --primary:        #9E4590;  /* CDN pink, text-safe on white/off-white */
+  --primary-hover:  #873B7C;
+  --primary-light:  #F7EAF4;
+  --success:        #1B7A50;  /* RAG green, text-safe */
+  --success-light:  #EAF7F0;
+  --error:          #B2423E;  /* RAG red, text-safe */
+  --error-light:    #FBEFEE;
+  --warning:        #966111;  /* RAG amber, text-safe */
+  --warning-light:  #FBF3E3;
+  --neutral:        #5D6488;  /* RAG deferred grey, navy-leaning */
 
-  --text:           #0f172a;
-  --text-muted:     #64748b;
-  --text-subtle:    #94a3b8;
+  --bg:             #EAE9E5;  /* warm off-white — never pure white */
+  --surface:        #FFFFFF;
+  --border:         #E0DFE6;
+  --border-strong:  #C6C7D4;
+
+  --text:           #121C51;
+  --text-muted:     #4A5175;
+  --text-subtle:    #6E7494;
 
   --radius-sm:  4px;
   --radius:     8px;
   --radius-lg:  12px;
 
-  --shadow-sm:  0 1px 2px rgba(0,0,0,.06);
-  --shadow:     0 1px 4px rgba(0,0,0,.08), 0 2px 8px rgba(0,0,0,.06);
-  --shadow-lg:  0 4px 16px rgba(0,0,0,.10);
+  --shadow-sm:  0 1px 2px rgba(18,28,81,.06);
+  --shadow:     0 1px 4px rgba(18,28,81,.08), 0 2px 8px rgba(18,28,81,.06);
+  --shadow-lg:  0 4px 16px rgba(18,28,81,.12);
 
   --nav-height: 56px;
 }
@@ -41,7 +49,7 @@
 html { height: 100%; }
 
 body {
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Open Sans', Arial, Helvetica, sans-serif;
   font-size: 14px;
   line-height: 1.5;
   color: var(--text);
@@ -67,9 +75,9 @@ a:hover { text-decoration: underline; }
   top: 0;
   z-index: 100;
   height: var(--nav-height);
-  background: #32373c;
+  background: var(--navy);
   border-bottom: none;
-  box-shadow: 0 2px 6px rgba(0,0,0,.15);
+  box-shadow: 0 2px 6px rgba(18,28,81,.25);
   display: flex;
   align-items: center;
   padding: 0 24px;
@@ -82,13 +90,13 @@ a:hover { text-decoration: underline; }
   gap: 10px;
   font-weight: 700;
   font-size: 1rem;
-  color: #ffffff;
+  color: #EAE9E5;
   letter-spacing: -.01em;
   white-space: nowrap;
 }
 
 .nav-brand img {
-  height: 32px;
+  height: 26px;
   width: auto;
 }
 
@@ -111,15 +119,15 @@ a:hover { text-decoration: underline; }
   padding: 0 14px;
   font-size: .875rem;
   font-weight: 500;
-  color: rgba(255,255,255,.7);
+  color: rgba(234,233,229,.72);
   cursor: pointer;
   transition: border-color .15s, color .15s;
 }
-.nav-tab:hover { color: #ffffff; border-bottom-color: rgba(255,255,255,.35); }
-.nav-tab.active { color: #ffffff; border-bottom-color: var(--primary); }
+.nav-tab:hover { color: #EAE9E5; border-bottom-color: rgba(234,233,229,.35); }
+.nav-tab.active { color: #EAE9E5; border-bottom-color: var(--accent); }
 
 .nav-alert {
-  color: #fbbf24;
+  color: #E8A33D;
   font-size: 1.1rem;
   margin-left: 4px;
 }
@@ -134,12 +142,12 @@ a:hover { text-decoration: underline; }
   align-items: center;
   justify-content: center;
   font-size: 1.125rem;
-  color: rgba(255,255,255,.7);
+  color: rgba(234,233,229,.72);
   cursor: pointer;
   transition: background .15s, color .15s;
   flex-shrink: 0;
 }
-.nav-settings:hover { background: rgba(255,255,255,.1); color: #ffffff; }
+.nav-settings:hover { background: rgba(234,233,229,.1); color: #EAE9E5; }
 
 /* ============================================================
    Page / content area
@@ -188,8 +196,8 @@ a:hover { text-decoration: underline; }
   flex-shrink: 0;
   transition: background .2s, border-color .2s;
 }
-.step-item.active .step-dot  { border-color: var(--primary); background: var(--primary); color: #fff; }
-.step-item.done .step-dot    { border-color: var(--primary); background: var(--primary); color: #fff; }
+.step-item.active .step-dot  { border-color: var(--primary); background: var(--primary); color: #F4F2EF; }
+.step-item.done .step-dot    { border-color: var(--primary); background: var(--primary); color: #F4F2EF; }
 
 .step-label {
   font-size: .75rem;
@@ -238,14 +246,14 @@ a:hover { text-decoration: underline; }
 }
 .btn:disabled { opacity: .45; cursor: not-allowed; }
 
-.btn-primary  { background: var(--primary); color: #fff; }
-.btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
+.btn-primary  { background: var(--accent-soft); color: var(--navy); border-radius: 999px; }
+.btn-primary:hover:not(:disabled) { background: var(--accent-soft-hover); }
 
 .btn-secondary { background: var(--surface); border-color: var(--border-strong); color: var(--text); }
 .btn-secondary:hover:not(:disabled) { background: var(--bg); }
 
-.btn-danger { background: var(--error-light); color: var(--error); border-color: #fecaca; }
-.btn-danger:hover:not(:disabled) { background: #fee2e2; }
+.btn-danger { background: var(--error-light); color: var(--error); border-color: #F0C7C4; }
+.btn-danger:hover:not(:disabled) { background: #F7E2E0; }
 
 .btn-sm { padding: 5px 12px; font-size: .8125rem; }
 .btn-lg { padding: 10px 24px; font-size: 1rem; }
@@ -287,7 +295,7 @@ select {
 input:focus, select:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(6,147,227,.12);
+  box-shadow: 0 0 0 3px rgba(158,69,144,.16);
 }
 
 .field { margin-bottom: 16px; }
@@ -376,10 +384,10 @@ input:focus, select:focus {
   font-size: .875rem;
   margin-bottom: 16px;
 }
-.alert-error   { background: var(--error-light);   color: var(--error);   border: 1px solid #fecaca; }
-.alert-warning { background: var(--warning-light); color: var(--warning); border: 1px solid #fde68a; }
-.alert-info    { background: var(--primary-light); color: var(--primary); border: 1px solid #bfdbfe; }
-.alert-success { background: var(--success-light); color: var(--success); border: 1px solid #bbf7d0; }
+.alert-error   { background: var(--error-light);   color: var(--error);   border: 1px solid #F0C7C4; }
+.alert-warning { background: var(--warning-light); color: var(--warning); border: 1px solid #EBD5A8; }
+.alert-info    { background: var(--primary-light); color: var(--primary); border: 1px solid #E5C4DF; }
+.alert-success { background: var(--success-light); color: var(--success); border: 1px solid #BEE3D1; }
 
 /* ============================================================
    Table (column mapping review)

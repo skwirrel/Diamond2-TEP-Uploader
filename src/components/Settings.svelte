@@ -230,8 +230,8 @@
   .ephemeral-note {
     margin-bottom: 20px;
     padding: 10px 12px;
-    border-left: 3px solid #e0a800;
-    background: rgba(224, 168, 0, 0.08);
+    border-left: 3px solid #E8A33D;
+    background: var(--warning-light);
     font-size: 0.9em;
     line-height: 1.5;
   }
